@@ -70,6 +70,12 @@ public class DatabaseLogic {
                     String filePath = file != null ? file.getAbsolutePath() : "";
                     String fileType = file != null ? convertParentToType(file.getParentFile().getName()) : "";
 
+
+                    // TODO Terminer ça, la révision c'est la partie droite du nom du fichier avant le .pdf !
+                    String revision = file != null ? file.getName().split("_")[1] : "";
+
+
+
                     psArticle.setString(1, articleCode);
                     psArticle.setString(2, "");
                     psArticle.setString(3, "");
@@ -86,7 +92,7 @@ public class DatabaseLogic {
                     psFichier.setString(4, filePath);
                     psFichier.setInt(5, 0);
                     psFichier.setString(6, articleCode);
-                    psFichier.setString(7, "");
+                    psFichier.setString(7, revision);
                     psFichier.setInt(8, 0);
                     psFichier.setString(9, "");
                     psFichier.setInt(10, Integer.parseInt(lastModification));
