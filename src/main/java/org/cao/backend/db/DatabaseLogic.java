@@ -10,9 +10,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DatabaseLogic {
+
+    // =============== Initialisation des prérequis pour la base de données ===============
 
     private static final String URL = BackendLogic.readProperty("db.url");
     private static final String USER = BackendLogic.readProperty("db.user");
@@ -24,6 +28,10 @@ public class DatabaseLogic {
 
     }
 
+    /**
+     * Méthode qui permet d'actualiser la base de données afin d'y intégrer des données.
+     * @param truncate : Booléen permettant de vider la base de données avant d'y insérer les données, utile pour les tests.
+     */
     public static void updateDatabase(boolean truncate) {
 
         try {
@@ -87,14 +95,12 @@ public class DatabaseLogic {
 
                     $$0++;
 
-                    if ($$0 % 1000 == 0) {
-                        psArticle.executeBatch();
-                        psFichier.executeBatch();
-                        con.commit();
+                    psArticle.executeBatch();
+                    psFichier.executeBatch();
+                    con.commit();
 
-                        int percentage = (int) (((float) $$0 / maxValue) * 100);
-                        System.out.print("\rProgression: " + percentage + "%");
-                    }
+                    int percentage = (int) (((float) $$0 / maxValue) * 100);
+                    System.out.print("\rProgression: " + percentage + "%");
                 }
 
                 psArticle.executeBatch();
@@ -109,6 +115,13 @@ public class DatabaseLogic {
         }
     }
 
+    /**
+     * Méthode qui permet de voir si une donnée est déjà dans une table.
+     * @param table : La table de la base de données, à vérifier.
+     * @param columnName : La colonne de la table.
+     * @param data : La donnée qu'on veut vérifier.
+     * @return Le résultat de si une donnée cherchée est dans une table de la base de données ou non.
+     */
     public static boolean dataIsAlreadyExist(String table, String columnName, String data) {
         String query = "SELECT " + columnName + " FROM " + table + " WHERE " + columnName + " = ?";
 
@@ -124,6 +137,11 @@ public class DatabaseLogic {
         }
     }
 
+    /**
+     * Méthode permettant de retourner une liste qui contient pleins de petite liste qui symbolisent chaques lignes du fichier
+     * ArticlesOutBong.txt afin de récupérer chaques données plus facilement (code article, description, version).
+     * @return Une liste contenant des listes correspondant aux lignes du fichier ArticlesOutBong.txt.
+     */
     public static List<List<String>> extractDatasOnOneLineInOutFile() {
         File fileOut = new File(BackendLogic.ARTICLES_OUT_BONG_PATH);
         List<List<String>> mainList = new ArrayList<>();
@@ -143,14 +161,31 @@ public class DatabaseLogic {
         return mainList;
     }
 
+    /**
+     * Méthode permettant de vider complètement les données de la table ArticleCAN.
+     * @param statement : État de la base de données.
+     * @throws SQLException : Évite les erreurs SQL.
+     */
     public static void truncateArticleCANTable(Statement statement) throws SQLException {
         statement.execute("TRUNCATE TABLE ArticleCAN");
     }
 
+    /**
+     * Méthode permettant de vider complètement les données de la table Fichier.
+     * @param statement : État de la base de données.
+     * @throws SQLException : Évite les erreurs SQL.
+     */
     public static void truncateFichierTable(Statement statement) throws SQLException {
         statement.execute("TRUNCATE TABLE Fichier");
     }
 
+    /**
+     * Méthode permettant de retouver un fichier avec sa dernière version dans cao2016 à partir de son code article.
+     * @param root : Le chemin du dossier main.
+     * @param articleCode : Le code article dont on veut le fichier.
+     * @return La dernière version du fichier correspondant au code article donné en entrée.
+     * @throws IOException : On évite les erreurs.
+     */
     public static File findFileWithLastVersion(Path root, String articleCode) throws IOException {
         File bestFile = null;
         int bestVersion = -1;
@@ -179,6 +214,13 @@ public class DatabaseLogic {
         return bestFile;
     }
 
+    /**
+     * Méthode permettant de retouver toutes les versions d'un fichier dans cao2016 grâce à son code article.
+     * @param root : Le chemin du dossier main.
+     * @param articleCode : Le code article dont on veut le fichier.
+     * @return Une liste de tous les fichiers correspondant au code article.
+     * @throws IOException : On évite les erreurs.
+     */
     public static List<File> findAllFileVersions(Path root, String articleCode) throws IOException {
         List<File> files = new ArrayList<>();
 
@@ -208,6 +250,11 @@ public class DatabaseLogic {
         return files;
     }
 
+    /**
+     * Méthode appliquant findFileWithLastVersion() pour récupérer le fichier le plus récent correspondant au code article.
+     * @param articleCode : Le code article recherché.
+     * @return Le plus récent correspondant au code article.
+     */
     public static File findFileAndItLastVersionInDirectory(String articleCode) {
         Path root = Paths.get(BackendLogic.DIRECTORY_PATH);
         try {
@@ -217,6 +264,11 @@ public class DatabaseLogic {
         }
     }
 
+    /**
+     * Méthode appliquant findAllFileVersions() pour récupérer tous les fichiers correspondants au code article.
+     * @param articleCode : Le code article recherché.
+     * @return Le plus récent correspondant au code article.
+     */
     public static List<File> findFileAndAllVersionsInDirectory(String articleCode) {
         Path root = Paths.get(BackendLogic.DIRECTORY_PATH);
         try {
@@ -226,6 +278,11 @@ public class DatabaseLogic {
         }
     }
 
+    /**
+     * Méthode permettant de convertir le nom du dossier parent d'un fichier en une catégorie plus lisible.
+     * @param parentName : Nom du dossier parent du fichier .pdf trouvé.
+     * @return Une catégorie de fichier.
+     */
     public static String convertParentToType(String parentName) {
         return switch(parentName) {
             case "ELEC_online" -> "ELEC";
