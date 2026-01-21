@@ -59,8 +59,8 @@ public class DatabaseLogic {
 
             Map<String, File> fileCache = buildFileCache(BackendLogic.DIRECTORY_PATH);
 
-            List<List<String>> allData = extractDatasOnOneLineInOutFile();
-            int maxValue = allData.size();
+            List<List<String>> allDataInOutFile = extractDatasOnOneLineInOutFile();
+            int maxValue = allDataInOutFile.size();
             int $$0 = 0;
 
             String queryArticle = "INSERT INTO ArticleCAN(CodeCAN, LP, AchFab, Statut, DescCAN, DescCANUK, UM, Matiere) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -118,7 +118,7 @@ public class DatabaseLogic {
                 con.commit();
 
 
-                for (List<String> line : allData) {
+                for (List<String> line : allDataInOutFile) {
                     String articleCode = line.get(0);
                     String description = line.get(1);
                     String lastModification = line.get(2);
