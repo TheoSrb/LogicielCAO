@@ -1,7 +1,10 @@
 package org.cao.backend;
 
 import java.io.*;
+import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class BackendLogic {
 
@@ -11,30 +14,38 @@ public class BackendLogic {
     public static final String ARTICLES_IN_BONG_PATH = readProperty("file.in.path");
     public static final String DIRECTORY_PATH = readProperty("directory.path");
 
-    /*
-    Map permettant de disocier le code article de sa version (fonctionne uniquement dans le dossier PDFS_online).
+    public static final List<String> AUTHORIZED_FOLDERS_NAMES = separateAllAuthorizedFolders(readProperty("authorized.explore.folders"));
+
+    /**
+     * Map permettant de dissocier le code article de sa version.
      */
-    private static Map<String, Integer> fileWithVersion = new HashMap<>();
+    private static Map<String, Integer> fileWithVersion = new ConcurrentHashMap<>();
 
     // =============== Méthodes ===============
 
     static void main() {
+        register();
+    }
+
+    private static void register() {
         /*
         Création des fichiers principaux.
          */
         File fileOUT = new File(ARTICLES_OUT_BONG_PATH);
-        File directory = new File(DIRECTORY_PATH);
+        Path directory = Paths.get(DIRECTORY_PATH);
 
         /*
-        Listes globales, et utiles pour le logiciel.
+        Listes globales et utiles pour le logiciel.
          */
         List<String> articleCodeNotUpdated = new ArrayList<>();
         List<String> newArticleCodeNotPresentInOutFile = new ArrayList<>();
 
         /*
-        On assigne à la map chaque code article avec sa version depuis le dossier PDFS_online.
+        On assigne à la map chaque code article avec sa version depuis le dossier principal.
          */
-        for (String fileNameStr : getAllFilesNamesInDirectory(directory)) {
+        List<String> allFileNames = getAllFilesNamesInDirectory(directory);
+
+        for (String fileNameStr : allFileNames) {
             String key = cutArticleCode(fileNameStr);
             int value = cutArticleVersion(fileNameStr);
 
@@ -42,11 +53,14 @@ public class BackendLogic {
         }
 
         /*
-        On compare la version d'un code article du dossier PDFS_online au même code article dans le fichier ArticlesOutBong.txt, on regarde si
-        la version du dossier est supérieure (donc plus récente) à celle du fichier, sinon on ajoute le code article à la liste
-        articleCodeNotUpdated permettant de savoir quels codes article doivent être mis à jour entre le fichier ArticlesOutBong.txt et le
-        dossier PDFS_online.
+        On compare la version d'un code article du dossier principal au même code article dans le fichier ArticlesOutBong.txt.
+        Si la version du dossier est supérieure (donc plus récente) à celle du fichier, on ajoute le code article à la liste
+        articleCodeNotUpdated.
          */
+
+        int total = fileWithVersion.size();
+        int current = 0;
+
         for (Map.Entry<String, Integer> entry : fileWithVersion.entrySet()) {
             String codeArticle = entry.getKey();
 
@@ -56,65 +70,88 @@ public class BackendLogic {
             if (lastVersion > actualVersion) {
                 articleCodeNotUpdated.add(codeArticle);
             }
+
+            current++;
+            if (current % 100 == 0 || current == total) {
+                int percentage = (int) (((float) current / total) * 100);
+                System.out.print("\rProgression comparaison versions: " + percentage + "%");
+            }
         }
 
         /*
-        On affiche juste un message pour voir s'il faut mettre à jour des plans (et lesquels dans ce cas), ou non.
+        Affichage d'un message pour voir s'il faut mettre à jour des plans (et lesquels dans ce cas), ou non.
          */
         if (!articleCodeNotUpdated.isEmpty()) {
-            System.out.println("Des fichiers doivent être mis à jour ! \n-> Les codes articles qui doivent être mit à jour sont: " + articleCodeNotUpdated);
-        } else System.out.println("Tous les codes artices sont bien mis à jour !");
-
-        /*
-        On regarde et compare pour chaque code article du dossier, s'il n'existe PAS dans le fichier ArticlesOutBong.txt, si c'est le cas, on
-        l'ajoute à la liste newArticleCodeNotPresentInOutFile qui servira à contenir les code article à rajouter dans le futur fichier
-        ArticlesInBong.txt.
-         */
-        for (String fileName : getAllFilesNamesInDirectory(directory)) {
-            String articleCode = fileName.toUpperCase().split("_")[0];
-            List<String> allArticlesCodeInOut = new ArrayList<>();
-
-            for (String lineOut : getAllLinesInOutFile(fileOUT)) {
-                String articleCodeInOut = lineOut.toUpperCase().split(";")[0];
-                allArticlesCodeInOut.add(articleCodeInOut);
-            }
-            if (!allArticlesCodeInOut.contains(articleCode)) {
-                newArticleCodeNotPresentInOutFile.add(articleCode);
-            }
+            System.out.println("Des fichiers doivent être mis à jour ! \n   -> Les codes articles qui doivent être mis à jour sont: " + articleCodeNotUpdated);
+        } else {
+            System.out.println("Tous les codes articles sont bien mis à jour !");
         }
 
         /*
-        On crée le fichier ArticlesInBong.txt à partir du fichier ArticlesOutBong.txt déjà existant et des nouveaux code article à ajouter
-        (qu'on a ajouté plus tôt dans la liste newArticleCodeNotPresentInOutFile).
+        On regarde et compare pour chaque code article du dossier, s'il n'existe PAS dans le fichier ArticlesOutBong.txt.
+        Si c'est le cas, on l'ajoute à la liste newArticleCodeNotPresentInOutFile.
+         */
+
+        // On charge UNE SEULE FOIS tous les codes articles du fichier OUT dans un Set pour des recherches rapides
+        Set<String> allArticlesCodeInOut = new HashSet<>();
+        for (String lineOut : getAllLinesInOutFile(fileOUT)) {
+            String articleCodeInOut = lineOut.toUpperCase().split(";")[0];
+            allArticlesCodeInOut.add(articleCodeInOut);
+        }
+
+        // On vérifie chaque fichier par rapport au Set (recherche en O(1) au lieu de O(n))
+        Set<String> uniqueNewCodes = new HashSet<>();
+        for (String fileName : allFileNames) {
+            String articleCode = fileName.toUpperCase().split("_")[0];
+            if (!allArticlesCodeInOut.contains(articleCode)) {
+                uniqueNewCodes.add(articleCode);
+            }
+        }
+        newArticleCodeNotPresentInOutFile.addAll(uniqueNewCodes);
+
+        /*
+        Création du fichier ArticlesInBong.txt à partir du fichier ArticlesOutBong.txt déjà existant et des nouveaux codes articles.
         */
         createArticleInBongFile(fileOUT, newArticleCodeNotPresentInOutFile);
     }
 
     /**
-     * Méthode permettant de retourner une liste des noms des fichiers pdf contenus dans le dossier PDFS_online en enlevant leur extension .pdf.
-     * @param directory : Le dossier dans lequel on récupère les noms des fichiers pdf.
-     * @return Une liste de nom de fichiers pdf, avec à gauche son code article et à droite sa nouvelle version.
+     * Méthode permettant de retourner une liste des noms des fichiers PDF contenus dans l'arborescence
+     * du dossier principal (publi_web avec ses sous-dossiers et plan_be/SCANNE_online).
+     * Utilise Files.walk() pour une exploration rapide et parallélisée.
+     * @param mainDirectory : Le dossier principal contenant publi_web et plan_be
+     * @return Une liste de noms de fichiers PDF sans extension
      */
-    public static List<String> getAllFilesNamesInDirectory(File directory) {
-        List<String> fileNames = new ArrayList<>();
-        /*
-        On récupère tous les fichiers contenus dans le dossier qui ont comme extension ".pdf".
-         */
-        File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
+    public static List<String> getAllFilesNamesInDirectory(Path mainDirectory) {
+        try (var stream = Files.walk(mainDirectory)
+                .parallel()
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".pdf"))
+                .filter(path -> isValidPath(path))) {
 
-        if (files != null) {
-            for (File file : files) {
-                // On ajoute le nom du fichier à la liste qu'on va retourner, sans garder l'extension ".pdf", uniquement son nom pûr.
-                String fileName = file.getName();
-                int index = fileName.lastIndexOf('.');
-                if (index > 0) {
-                    fileNames.add(fileName.substring(0, index));
-                }
+            return stream
+                    .map(path -> {
+                        String fileName = path.getFileName().toString();
+                        int index = fileName.lastIndexOf('.');
+                        return index > 0 ? fileName.substring(0, index) : fileName;
+                    })
+                    .collect(Collectors.toList());
 
-            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
         }
+    }
 
-        return fileNames;
+    /**
+     * Méthode permettant de vérifier si le chemin contient un dossier autorisé à être exploré.
+     * @param path : Le chemin à vérifier.
+     * @return Un booléen indiquant si le chemin est autorisé.
+     */
+    private static boolean isValidPath(Path path) {
+        String pathString = path.toString();
+        return AUTHORIZED_FOLDERS_NAMES.stream()
+                .anyMatch(pathString::contains);
     }
 
     /**
@@ -128,7 +165,7 @@ public class BackendLogic {
         try (Scanner scanner = new Scanner(fileOut)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-                lines.add(line);    // On ajoute chaque ligne lue dans la liste qu'on retournera plus tard.
+                lines.add(line);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,28 +175,26 @@ public class BackendLogic {
     }
 
     /**
-     * Méthode permetant d'entrer un nom de fichier .pdf (obtenu avec la méthode getAllFilesNamesInDirectory()) et d'en ressortir uniquement le
-     * code article.
+     * Méthode permettant d'entrer un nom de fichier .pdf et d'en ressortir uniquement le code article.
      * @param fileName : Le nom du fichier à découper.
      * @return Le code article du fichier.
      */
     private static String cutArticleCode(String fileName) {
-        return fileName.split("_")[0];    // On prend la partie gauche avant le "_".
+        return fileName.split("_")[0];
     }
 
     /**
-     * Méthode permetant d'entrer un nom de fichier .pdf (obtenu avec la méthode getAllFilesNamesInDirectory()) et d'en ressortir uniquement la
-     * version la plus récente du dossier PDFS_online.
+     * Méthode permettant d'entrer un nom de fichier .pdf et d'en ressortir uniquement la version.
      * @param fileName : Le nom du fichier à découper.
      * @return La version du fichier.
      */
     private static int cutArticleVersion(String fileName) {
-        return Integer.parseInt(fileName.split("_")[1]);    // On prend la partie droite après le "_".
+        return Integer.parseInt(fileName.split("_")[1]);
     }
 
     /**
      * Méthode permettant d'entrer un code article et d'avoir sa version depuis le fichier ArticlesOutBong.txt.
-     * @param articleCode : Le code article dont on veut sa version dans le fichier ArticlesOutBong.txt.
+     * @param articleCode : Le code article dont on veut la version dans le fichier ArticlesOutBong.txt.
      * @return La version du code article entré, depuis le fichier ArticlesOutBong.txt.
      */
     private static int findVersionForArticleCode(String articleCode) {
@@ -170,10 +205,6 @@ public class BackendLogic {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
 
-                /*
-                 Si la ligne qu'on regarde actuellement contient le code article dont on veut trouver sa version dans le fichier
-                 ArticlesOutBong.txt, alors on l'a trouvé et on l'assigne à version qu'on retournera plus tard.
-                 */
                 if (line.contains(articleCode.toUpperCase())) {
                     version = Integer.parseInt(line.split(";")[2]);
                     return version;
@@ -184,64 +215,79 @@ public class BackendLogic {
         }
 
         /*
-        On retourne la valeur max de Integer si jamais il ne trouve pas le code, afin de ne pas envoyer ce même code dans la liste
-        articleCodeNotUpdated et croire qu'il faut le mettre à jour alors qu'il n'existe simplement pas.
+        Retourne la valeur max de Integer si le code n'est pas trouvé, afin de ne pas l'ajouter
+        dans la liste articleCodeNotUpdated alors qu'il n'existe simplement pas.
         */
         return version;
     }
 
     /**
-     * Méthode permettant de créer un fichier (ou de le mettre à jour s'il l'est déjà) "ArticlesInBong.txt" dont son contenu est équivalent à
-     * tous les codes articles déjà présents dans le fichier ArticlesOutBong.txt puis des codes articles présents dans le dossier PDFS_online
-     * mais non-présents dans ce même fichier ArticlesOutBong.txt.
+     * Méthode permettant de créer un fichier (ou de le mettre à jour s'il existe déjà) "ArticlesInBong.txt".
+     * Son contenu est équivalent à tous les codes articles présents dans ArticlesOutBong.txt
+     * plus les codes articles présents dans le dossier principal, mais absents du fichier ArticlesOutBong.txt.
      * @param fileOUT : Le fichier ArticlesOutBong.txt.
-     * @param newArticleCodeNotPresentInOutFile : La liste créée et remplie plus tôt qui contient les codes articles qui sont dans le dossier
-     *                                          PDFS_online mais qui n'étaient pas dans le fichier ArticlesOutBong.txt.
+     * @param newArticleCodeNotPresentInOutFile : La liste des codes articles dans le dossier principal, mais absents du
+     *                                          fichier ArticlesOutBong.txt.
      */
     private static void createArticleInBongFile(File fileOUT, List<String> newArticleCodeNotPresentInOutFile) {
         File fileIN = new File(ARTICLES_IN_BONG_PATH);
 
         if (!fileIN.exists()) {
             try {
-                fileIN.createNewFile(); // On crée le fichier s'il n'existe pas déjà.
+                fileIN.createNewFile();
                 System.out.println("Le fichier ArticlesInBong.txt a bien été créé.");
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        } else System.err.println("Le fichier ArticlesInBong.txt existe déjà, ce dernier va être mis à jour.");
-        try {
-            FileWriter writer = new FileWriter(fileIN);
-            BufferedWriter bw = new BufferedWriter(writer);
+        } else {
+            System.err.println("Le fichier ArticlesInBong.txt existe déjà, ce dernier va être mis à jour.");
+        }
 
-                /*
-                On récupère tous les codes articles du fichier ArticlesOutBong.txt puis on les réécrit dans le nouveau fichier
-                ArticlesInBong.txt.
-                 */
-            for (String line : getAllLinesInOutFile(fileOUT)) {
+        try (FileWriter writer = new FileWriter(fileIN);
+             BufferedWriter bw = new BufferedWriter(writer)) {
+
+            List<String> allLinesOut = getAllLinesInOutFile(fileOUT);
+            int totalLines = allLinesOut.size() + newArticleCodeNotPresentInOutFile.size();
+            int currentLine = 0;
+
+            /*
+            Récupération de tous les codes articles du fichier ArticlesOutBong.txt
+            puis réécriture dans le nouveau fichier ArticlesInBong.txt.
+             */
+            for (String line : allLinesOut) {
                 String articleCode = line.split(";")[0];
                 bw.write(articleCode + "\n");
+
+                currentLine++;
+                if (currentLine % 100 == 0 || currentLine == totalLines) {
+                    int percentage = (int) (((float) currentLine / totalLines) * 100);
+                    System.out.print("\r   Progression création ArticlesInBong.txt: " + percentage + "%");
+                }
             }
 
-                /*
-                On réécrit tous les codes articles dans le nouveau fichier ArticlesInBong.txt.
-                 */
+            /*
+            Écriture de tous les nouveaux codes articles dans le fichier ArticlesInBong.txt.
+             */
             for (String articleCode : newArticleCodeNotPresentInOutFile) {
                 bw.write(articleCode + "\n");
+
+                currentLine++;
+                if (currentLine % 100 == 0 || currentLine == totalLines) {
+                    int percentage = (int) (((float) currentLine / totalLines) * 100);
+                    System.out.print("\r   Progression création ArticlesInBong.txt: " + percentage + "%");
+                }
             }
 
-            bw.close();     // On ferme tout pour éviter d'avoir des problèmes de mémoire.
-            writer.close();
-
-            System.out.println("Le fichier ArticlesInBong.txt a bien été mis à jour.");
+            System.out.print("\r   Progression création ArticlesInBong.txt terminée\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     /**
-     * Méthode permettant de récupérer la valeur d'une propriété donnée en entrée, dans le fichier config.properties du projet.
-     * @param property : La valeur de la propriété qu'on veut obtenir.
+     * Méthode permettant de récupérer la valeur d'une propriété donnée en entrée,
+     * dans le fichier config.properties du projet.
+     * @param property : La propriété qu'on veut obtenir.
      * @return La valeur de la propriété donnée en entrée.
      */
     public static String readProperty(String property) {
@@ -249,12 +295,20 @@ public class BackendLogic {
 
         try (InputStream fis = BackendLogic.class.getClassLoader().getResourceAsStream("config.properties")) {
             props.load(fis);
-
             return props.getProperty(property);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         return "Erreur : Propriété introuvable.";
+    }
+
+    /**
+     * Méthode permettant de séparer les éléments dans config.properties pour en obtenir une liste.
+     * @param filesName : La propriété de config.properties.
+     * @return Une liste des dossiers pouvant être explorés.
+     */
+    private static List<String> separateAllAuthorizedFolders(String filesName) {
+        return List.of(filesName.split(";"));
     }
 }
