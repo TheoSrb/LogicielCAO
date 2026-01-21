@@ -38,7 +38,7 @@ public class BackendLogic {
         Listes globales et utiles pour le logiciel.
          */
         List<String> articleCodeNotUpdated = new ArrayList<>();
-        Set<String> newArticleCodeNotPresentInOutFile = new HashSet<>();
+        List<String> newArticleCodeNotPresentInOutFile = new ArrayList<>();
 
         /*
         On assigne à la map chaque code article avec sa version depuis le dossier principal.
@@ -58,22 +58,17 @@ public class BackendLogic {
         articleCodeNotUpdated.
          */
 
-        Map<String, Integer> outFileData = loadOutFileDataInMemory(fileOUT);
-
         int total = fileWithVersion.size();
         int current = 0;
 
         for (Map.Entry<String, Integer> entry : fileWithVersion.entrySet()) {
             String codeArticle = entry.getKey();
-            int lastVersion = entry.getValue();
 
-            if (outFileData.containsKey(codeArticle)) {
-                int actualVersion = outFileData.get(codeArticle);
-                if (lastVersion > actualVersion) {
-                    articleCodeNotUpdated.add(codeArticle);
-                }
-            } else {
-                newArticleCodeNotPresentInOutFile.add(codeArticle);
+            int lastVersion = entry.getValue();
+            int actualVersion = findVersionForArticleCode(codeArticle);
+
+            if (lastVersion > actualVersion) {
+                articleCodeNotUpdated.add(codeArticle);
             }
 
             current++;
@@ -87,9 +82,9 @@ public class BackendLogic {
         Affichage d'un message pour voir s'il faut mettre à jour des plans (et lesquels dans ce cas), ou non.
          */
         if (!articleCodeNotUpdated.isEmpty()) {
-            System.out.println("\nDes fichiers doivent être mis à jour ! \n   -> Les codes articles qui doivent être mis à jour sont: " + articleCodeNotUpdated);
+            System.out.println("Des fichiers doivent être mis à jour ! \n   -> Les codes articles qui doivent être mis à jour sont: " + articleCodeNotUpdated);
         } else {
-            System.out.println("\nTous les codes articles sont bien mis à jour !");
+            System.out.println("Tous les codes articles sont bien mis à jour !");
         }
 
         /*
@@ -97,10 +92,27 @@ public class BackendLogic {
         Si c'est le cas, on l'ajoute à la liste newArticleCodeNotPresentInOutFile.
          */
 
+        // On charge UNE SEULE FOIS tous les codes articles du fichier OUT dans un Set pour des recherches rapides
+        Set<String> allArticlesCodeInOut = new HashSet<>();
+        for (String lineOut : getAllLinesInOutFile(fileOUT)) {
+            String articleCodeInOut = lineOut.toUpperCase().split(";")[0];
+            allArticlesCodeInOut.add(articleCodeInOut);
+        }
+
+        // On vérifie chaque fichier par rapport au Set (recherche en O(1) au lieu de O(n))
+        Set<String> uniqueNewCodes = new HashSet<>();
+        for (String fileName : allFileNames) {
+            String articleCode = fileName.toUpperCase().split("_")[0];
+            if (!allArticlesCodeInOut.contains(articleCode)) {
+                uniqueNewCodes.add(articleCode);
+            }
+        }
+        newArticleCodeNotPresentInOutFile.addAll(uniqueNewCodes);
+
         /*
         Création du fichier ArticlesInBong.txt à partir du fichier ArticlesOutBong.txt déjà existant et des nouveaux codes articles.
         */
-        createArticleInBongFile(outFileData.keySet(), new ArrayList<>(newArticleCodeNotPresentInOutFile));
+        createArticleInBongFile(fileOUT, newArticleCodeNotPresentInOutFile);
     }
 
     /**
@@ -150,9 +162,9 @@ public class BackendLogic {
     public static List<String> getAllLinesInOutFile(File fileOut) {
         List<String> lines = new ArrayList<>();
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(fileOut), 8192)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+        try (Scanner scanner = new Scanner(fileOut)) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
                 lines.add(line);
             }
         } catch (Exception e) {
@@ -160,26 +172,6 @@ public class BackendLogic {
         }
 
         return lines;
-    }
-
-    private static Map<String, Integer> loadOutFileDataInMemory(File fileOUT) {
-        Map<String, Integer> data = new HashMap<>();
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(fileOUT), 16384)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(";");
-                if (parts.length >= 3) {
-                    String articleCode = parts[0].toUpperCase();
-                    int version = Integer.parseInt(parts[2]);
-                    data.put(articleCode, version);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return data;
     }
 
     /**
@@ -233,11 +225,11 @@ public class BackendLogic {
      * Méthode permettant de créer un fichier (ou de le mettre à jour s'il existe déjà) "ArticlesInBong.txt".
      * Son contenu est équivalent à tous les codes articles présents dans ArticlesOutBong.txt
      * plus les codes articles présents dans le dossier principal, mais absents du fichier ArticlesOutBong.txt.
-     * @param existingCodes : Un ensemble des codes articles présents dans le fichier "ArticlesOutBong.txt".
+     * @param fileOUT : Le fichier ArticlesOutBong.txt.
      * @param newArticleCodeNotPresentInOutFile : La liste des codes articles dans le dossier principal, mais absents du
      *                                          fichier ArticlesOutBong.txt.
      */
-    private static void createArticleInBongFile(Set<String> existingCodes, List<String> newArticleCodeNotPresentInOutFile) {
+    private static void createArticleInBongFile(File fileOUT, List<String> newArticleCodeNotPresentInOutFile) {
         File fileIN = new File(ARTICLES_IN_BONG_PATH);
 
         if (!fileIN.exists()) {
@@ -251,18 +243,20 @@ public class BackendLogic {
             System.err.println("Le fichier ArticlesInBong.txt existe déjà, ce dernier va être mis à jour.");
         }
 
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileIN), 16384)) {
+        try (FileWriter writer = new FileWriter(fileIN);
+             BufferedWriter bw = new BufferedWriter(writer)) {
 
-            int totalLines = existingCodes.size() + newArticleCodeNotPresentInOutFile.size();
+            List<String> allLinesOut = getAllLinesInOutFile(fileOUT);
+            int totalLines = allLinesOut.size() + newArticleCodeNotPresentInOutFile.size();
             int currentLine = 0;
 
             /*
             Récupération de tous les codes articles du fichier ArticlesOutBong.txt
             puis réécriture dans le nouveau fichier ArticlesInBong.txt.
              */
-            for (String articleCode : existingCodes) {
-                bw.write(articleCode);
-                bw.newLine();
+            for (String line : allLinesOut) {
+                String articleCode = line.split(";")[0];
+                bw.write(articleCode + "\n");
 
                 currentLine++;
                 if (currentLine % 100 == 0 || currentLine == totalLines) {
@@ -275,13 +269,12 @@ public class BackendLogic {
             Écriture de tous les nouveaux codes articles dans le fichier ArticlesInBong.txt.
              */
             for (String articleCode : newArticleCodeNotPresentInOutFile) {
-                bw.write(articleCode);
-                bw.newLine();
+                bw.write(articleCode + "\n");
 
                 currentLine++;
                 if (currentLine % 100 == 0 || currentLine == totalLines) {
                     int percentage = (int) (((float) currentLine / totalLines) * 100);
-                    System.out.print("\rProgression création ArticlesInBong.txt: " + percentage + "%");
+                    System.out.print("\r   Progression création ArticlesInBong.txt: " + percentage + "%");
                 }
             }
         } catch (IOException e) {
