@@ -18,9 +18,13 @@ public class DatabaseLogic {
 
     // =============== Initialisation des prérequis pour la base de données ===============
 
-    private static final String URL = BackendLogic.readProperty("db.url");
+    private static final String URL = BackendLogic.readProperty("db.url")
+            + ";sendStringParametersAsUnicode=false"
+            + ";rewriteBatchedStatements=true";
     private static final String USER = BackendLogic.readProperty("db.user");
     private static final String PASSWORD = BackendLogic.readProperty("db.password");
+
+    private static final int BATCH_SIZE = 1000;  // Gère la vitesse du traitement.
 
     static void main() {
 
@@ -46,7 +50,14 @@ public class DatabaseLogic {
             if (truncate) {
                 truncateArticleCANTable(statement);
                 truncateFichierTable(statement);
+                truncateCompteursTable(statement);
             }
+
+            statement.execute("ALTER INDEX ALL ON ArticleCAN DISABLE");
+            statement.execute("ALTER INDEX ALL ON Fichier DISABLE");
+            statement.execute("ALTER INDEX ALL ON Compteurs DISABLE");
+
+            Map<String, File> fileCache = buildFileCache(BackendLogic.DIRECTORY_PATH);
 
             List<List<String>> allData = extractDatasOnOneLineInOutFile();
             int maxValue = allData.size();
@@ -54,28 +65,72 @@ public class DatabaseLogic {
 
             String queryArticle = "INSERT INTO ArticleCAN(CodeCAN, LP, AchFab, Statut, DescCAN, DescCANUK, UM, Matiere) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             String queryFichier = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String queryCompteurs = "INSERT INTO Compteurs(NbScan, NbPlan, Nb3D, NbAss, NbSchema, NbEclate, NbPFEclate, NbConfig) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+            String queryTabInt = "INSERT INTO TabInt(Type, Nom, Chemin, CodeCAN, Revision) VALUES (?, ?, ?, ?, ?);";
 
             try (PreparedStatement psArticle = con.prepareStatement(queryArticle);
-                 PreparedStatement psFichier = con.prepareStatement(queryFichier)) {
+                 PreparedStatement psFichier = con.prepareStatement(queryFichier);
+                 PreparedStatement psCompteurs = con.prepareStatement(queryCompteurs);
+                 PreparedStatement psTabInt = con.prepareStatement(queryTabInt)) {
 
                 con.setAutoCommit(false);
+
+
+                // ===== Table Compteurs =====
+
+                /*
+                On insère les données dans la table Compteurs ici, car il y a seulement une ligne à remplir, mettre la requête dans la
+                boucle plus bas multipirais le temps de traitement.
+                 */
+
+                File mainDirectory = new File(BackendLogic.DIRECTORY_PATH);
+
+                String scanNumber = "";
+                String planNumber = "";
+                String schemaNumber = "";
+                String eclateNumber = "";
+                String configNumber = "";
+
+                for (File folder : mainDirectory.listFiles()) {
+                    for (File subFolder : folder.listFiles()) {
+                        String subFolderName = subFolder.getName();
+                        int size = subFolder.listFiles() != null ? subFolder.listFiles().length : 0;
+
+                        if (subFolderName.contains("SCAN")) scanNumber = String.valueOf(size);
+                        else if (subFolderName.contains("CONFIG")) configNumber = String.valueOf(size);
+                        else if (subFolderName.contains("ECLATE")) eclateNumber = String.valueOf(size);
+                        else if (subFolderName.contains("ELEC")) schemaNumber = String.valueOf(size);
+                        else if (subFolderName.contains("PDFS_online")) planNumber = String.valueOf(size);
+                    }
+                }
+
+                psCompteurs.setString(1, scanNumber);
+                psCompteurs.setString(2, planNumber);
+                psCompteurs.setString(3, "");
+                psCompteurs.setString(4, "");
+                psCompteurs.setString(5, schemaNumber);
+                psCompteurs.setString(6, eclateNumber);
+                psCompteurs.setString(7, "");
+                psCompteurs.setString(8, configNumber);
+
+                psCompteurs.addBatch();
+                psCompteurs.executeBatch();
+                con.commit();
+
 
                 for (List<String> line : allData) {
                     String articleCode = line.get(0);
                     String description = line.get(1);
                     String lastModification = line.get(2);
 
-                    File file = findFileAndItLastVersionInDirectory(articleCode);
+                    File file = fileCache.get(articleCode);
                     String fileName = file != null ? file.getName() : "";
                     String filePath = file != null ? file.getAbsolutePath() : "";
-                    String fileType = file != null ? convertParentToType(file.getParentFile().getName()) : "";
+                    String fileType = file != null ? convertParentToType(file.getParentFile().getName()) : "PLAN";
 
+                    String revision = file != null ? extractRevision(file.getName()) : "";
 
-                    // TODO Terminer ça, la révision c'est la partie droite du nom du fichier avant le .pdf !
-                    String revision = file != null ? file.getName().split("_")[1] : "";
-
-
-
+                    // ===== Table ArticleCAN =====
                     psArticle.setString(1, articleCode);
                     psArticle.setString(2, "");
                     psArticle.setString(3, "");
@@ -86,39 +141,109 @@ public class DatabaseLogic {
                     psArticle.setString(8, "");
                     psArticle.addBatch();
 
+                    // ===== Table Fichier =====
                     psFichier.setString(1, fileName);
-                    psFichier.setString(2, "");
+                    psFichier.setString(2, ".");
                     psFichier.setString(3, fileType);
-                    psFichier.setString(4, filePath);
+                    psFichier.setString(4, ".");
                     psFichier.setInt(5, 0);
                     psFichier.setString(6, articleCode);
                     psFichier.setString(7, revision);
                     psFichier.setInt(8, 0);
-                    psFichier.setString(9, "");
+                    psFichier.setString(9, filePath);
                     psFichier.setInt(10, Integer.parseInt(lastModification));
                     psFichier.setString(11, "");
                     psFichier.addBatch();
 
+                    // ===== Table TabInt =====
+                    psTabInt.setString(1, fileType);
+                    psTabInt.setString(2, fileName);
+                    psTabInt.setString(3, filePath);
+                    psTabInt.setString(4, articleCode);
+                    psTabInt.setString(5, revision);
+                    psTabInt.addBatch();
+
+
                     $$0++;
 
-                    psArticle.executeBatch();
-                    psFichier.executeBatch();
-                    con.commit();
+                    if ($$0 % BATCH_SIZE == 0) {
+                        psArticle.executeBatch();
+                        psFichier.executeBatch();
+                        psTabInt.executeBatch();
+                        con.commit();
 
-                    int percentage = (int) (((float) $$0 / maxValue) * 100);
-                    System.out.print("\rProgression: " + percentage + "%");
+                        int percentage = (int) (((float) $$0 / maxValue) * 100);
+                        System.out.print("\rProgression: " + percentage + "%");
+                    }
                 }
 
-                psArticle.executeBatch();
-                psFichier.executeBatch();
-                con.commit();
+                if ($$0 % BATCH_SIZE != 0) {
+                    psArticle.executeBatch();
+                    psFichier.executeBatch();
+                    psTabInt.executeBatch();
+                    con.commit();
+                }
 
-                System.out.print("\rProgression: 100%\n");
+                System.out.print("\rProgression terminée\n");
             }
+
+            statement.execute("ALTER INDEX ALL ON ArticleCAN REBUILD");
+            statement.execute("ALTER INDEX ALL ON Fichier REBUILD");
+            statement.execute("ALTER INDEX ALL ON Compteurs REBUILD");
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    // TODO Je pense que dans la base acces dans Fichier, le reste des fichier qu'il me manque c'est soit un truc de version (tout avoir)
+    // TODO soit le reste des fichiers pdf dans PDFS_online qui ne sont PAS dans le reste des fichiers type CONFIG_online, ELEC_online, etc..
+
+    // TODO ATENTION CORRIGER, la DernvRev c'est pas le chiffre de Revision, c'est autre chose.
+
+    private static Map<String, File> buildFileCache(String directoryPath) {
+        Map<String, File> cache = new HashMap<>();
+        Path root = Paths.get(directoryPath);
+
+        try (var stream = Files.walk(root)) {
+            stream.filter(Files::isRegularFile)
+                    .forEach(path -> {
+                        String fileName = path.getFileName().toString();
+                        if (fileName.contains("_")) {
+                            String articleCode = fileName.split("_")[0];
+                            File existing = cache.get(articleCode);
+
+                            if (existing == null || isNewerVersion(path.toFile(), existing)) {
+                                cache.put(articleCode, path.toFile());
+                            }
+                        }
+                    });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return cache;
+    }
+
+    private static boolean isNewerVersion(File newFile, File existingFile) {
+        String newVersion = extractRevision(newFile.getName());
+        String existingVersion = extractRevision(existingFile.getName());
+
+        try {
+            return Integer.parseInt(newVersion) > Integer.parseInt(existingVersion);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static String extractRevision(String fileName) {
+        if (fileName.contains("_")) {
+            String[] parts = fileName.split("_");
+            if (parts.length > 1) {
+                return parts[1].split("\\.")[0];
+            }
+        }
+        return "";
     }
 
     /**
@@ -151,6 +276,7 @@ public class DatabaseLogic {
     public static List<List<String>> extractDatasOnOneLineInOutFile() {
         File fileOut = new File(BackendLogic.ARTICLES_OUT_BONG_PATH);
         List<List<String>> mainList = new ArrayList<>();
+
         for (String line : BackendLogic.getAllLinesInOutFile(fileOut)) {
             List<String> childList = new ArrayList<>();
 
@@ -186,6 +312,15 @@ public class DatabaseLogic {
     }
 
     /**
+     * Méthode permettant de vider complètement les données de la table Compteurs.
+     * @param statement : État de la base de données.
+     * @throws SQLException : Évite les erreurs SQL.
+     */
+    public static void truncateCompteursTable(Statement statement) throws SQLException {
+        statement.execute("TRUNCATE TABLE Compteurs");
+    }
+
+    /**
      * Méthode permettant de retouver un fichier avec sa dernière version dans cao2016 à partir de son code article.
      * @param root : Le chemin du dossier main.
      * @param articleCode : Le code article dont on veut le fichier.
@@ -197,7 +332,8 @@ public class DatabaseLogic {
         int bestVersion = -1;
 
         try (var stream = Files.find(root, Integer.MAX_VALUE,
-                (path, attr) -> attr.isRegularFile() && path.getFileName().toString().contains(articleCode))) {
+                        (path, attr) -> attr.isRegularFile() && path.getFileName().toString().contains(articleCode))
+                .parallel()) {
 
             for (Path path : (Iterable<Path>) stream::iterator) {
                 File file = path.toFile();
@@ -293,7 +429,7 @@ public class DatabaseLogic {
         return switch(parentName) {
             case "ELEC_online" -> "ELEC";
             case "CONFIG_online" -> "CONFIG";
-            case "PLAN_online" -> "PLAN";
+            case "PDFS_online" -> "PLAN";
             case "ECLATE_online" -> "PLAN_ECL";
             case "SCANNE_online" -> "SCAN";
             default -> "Non-renseigné";
