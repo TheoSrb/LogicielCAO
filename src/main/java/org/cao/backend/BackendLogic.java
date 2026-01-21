@@ -118,7 +118,6 @@ public class BackendLogic {
     /**
      * Méthode permettant de retourner une liste des noms des fichiers PDF contenus dans l'arborescence
      * du dossier principal (publi_web avec ses sous-dossiers et plan_be/SCANNE_online).
-     * Utilise Files.walk() pour une exploration rapide et parallélisée.
      * @param mainDirectory : Le dossier principal contenant publi_web et plan_be
      * @return Une liste de noms de fichiers PDF sans extension
      */
@@ -142,6 +141,30 @@ public class BackendLogic {
             return new ArrayList<>();
         }
     }
+
+    /**
+     * Méthode permettant de retourner une liste des fichiers PDF contenus dans l'arborescence
+     * du dossier principal (publi_web avec ses sous-dossiers et plan_be/SCANNE_online)
+     * @param mainDirectory Le dossier principal contenant publi_web et plan_be
+     * @return Une liste d'objets File correspondant aux fichiers PDF
+     */
+    public static List<File> getAllFilesInDirectory(Path mainDirectory) {
+        try (var stream = Files.walk(mainDirectory)
+                .parallel()
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".pdf"))
+                .filter(path -> isValidPath(path))) {
+
+            return stream
+                    .map(Path::toFile)
+                    .collect(Collectors.toList());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
 
     /**
      * Méthode permettant de vérifier si le chemin contient un dossier autorisé à être exploré.

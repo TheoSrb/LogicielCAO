@@ -60,7 +60,9 @@ public class DatabaseLogic {
             Map<String, File> fileCache = buildFileCache(BackendLogic.DIRECTORY_PATH);
 
             List<List<String>> allDataInOutFile = extractDatasOnOneLineInOutFile();
-            int maxValue = allDataInOutFile.size();
+            List<File> allFiles = BackendLogic.getAllFilesInDirectory(Paths.get(BackendLogic.DIRECTORY_PATH));
+
+            int maxValue = allDataInOutFile.size() + allFiles.size();
             int $$0 = 0;
 
             String queryArticle = "INSERT INTO ArticleCAN(CodeCAN, LP, AchFab, Statut, DescCAN, DescCANUK, UM, Matiere) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -75,13 +77,12 @@ public class DatabaseLogic {
 
                 con.setAutoCommit(false);
 
-
                 // ===== Table Compteurs =====
 
-                /*
-                On insère les données dans la table Compteurs ici, car il y a seulement une ligne à remplir, mettre la requête dans la
-                boucle plus bas multipirais le temps de traitement.
-                 */
+            /*
+            On insère les données dans la table Compteurs ici, car il y a seulement une ligne à remplir, mettre la requête dans la
+            boucle plus bas multipirais le temps de traitement.
+             */
 
                 File mainDirectory = new File(BackendLogic.DIRECTORY_PATH);
 
@@ -117,17 +118,14 @@ public class DatabaseLogic {
                 psCompteurs.executeBatch();
                 con.commit();
 
-
                 for (List<String> line : allDataInOutFile) {
                     String articleCode = line.get(0);
                     String description = line.get(1);
-                    String lastModification = line.get(2);
 
                     File file = fileCache.get(articleCode);
                     String fileName = file != null ? file.getName() : "";
                     String filePath = file != null ? file.getAbsolutePath() : "";
                     String fileType = file != null ? convertParentToType(file.getParentFile().getName()) : "PLAN";
-
                     String revision = file != null ? extractRevision(file.getName()) : "";
 
                     // ===== Table ArticleCAN =====
@@ -140,6 +138,39 @@ public class DatabaseLogic {
                     psArticle.setString(7, "");
                     psArticle.setString(8, "");
                     psArticle.addBatch();
+
+                    // ===== Table TabInt =====
+                    psTabInt.setString(1, fileType);
+                    psTabInt.setString(2, fileName);
+                    psTabInt.setString(3, filePath);
+                    psTabInt.setString(4, articleCode);
+                    psTabInt.setString(5, revision);
+                    psTabInt.addBatch();
+
+                    $$0++;
+
+                    if ($$0 % BATCH_SIZE == 0) {
+                        psArticle.executeBatch();
+                        psTabInt.executeBatch();
+                        con.commit();
+
+                        int percentage = (int) (((float) $$0 / maxValue) * 100);
+                        System.out.print("\rProgression: " + percentage + "%");
+                    }
+                }
+
+                psArticle.executeBatch();
+                psTabInt.executeBatch();
+                con.commit();
+
+                for (File file : allFiles) {
+                    String fileName = file.getName();
+                    String filePath = file.getAbsolutePath();
+                    String fileType = convertParentToType(file.getParentFile().getName());
+
+                    String revision = extractRevision(fileName);
+                    String articleCode = fileName.split("_")[0];
+                    String lastModification = fileName.split("_")[1].split("\\.")[0];
 
                     // ===== Table Fichier =====
                     psFichier.setString(1, fileName);
@@ -155,21 +186,10 @@ public class DatabaseLogic {
                     psFichier.setString(11, "");
                     psFichier.addBatch();
 
-                    // ===== Table TabInt =====
-                    psTabInt.setString(1, fileType);
-                    psTabInt.setString(2, fileName);
-                    psTabInt.setString(3, filePath);
-                    psTabInt.setString(4, articleCode);
-                    psTabInt.setString(5, revision);
-                    psTabInt.addBatch();
-
-
                     $$0++;
 
                     if ($$0 % BATCH_SIZE == 0) {
-                        psArticle.executeBatch();
                         psFichier.executeBatch();
-                        psTabInt.executeBatch();
                         con.commit();
 
                         int percentage = (int) (((float) $$0 / maxValue) * 100);
@@ -177,14 +197,10 @@ public class DatabaseLogic {
                     }
                 }
 
-                if ($$0 % BATCH_SIZE != 0) {
-                    psArticle.executeBatch();
-                    psFichier.executeBatch();
-                    psTabInt.executeBatch();
-                    con.commit();
-                }
+                psFichier.executeBatch();
+                con.commit();
 
-                System.out.print("\rProgression terminée\n");
+                System.out.print("\rProgression: 100%");
             }
 
             statement.execute("ALTER INDEX ALL ON ArticleCAN REBUILD");
@@ -195,6 +211,8 @@ public class DatabaseLogic {
             e.printStackTrace();
         }
     }
+
+
 
     // TODO Je pense que dans la base acces dans Fichier, le reste des fichier qu'il me manque c'est soit un truc de version (tout avoir)
     // TODO soit le reste des fichiers pdf dans PDFS_online qui ne sont PAS dans le reste des fichiers type CONFIG_online, ELEC_online, etc..
