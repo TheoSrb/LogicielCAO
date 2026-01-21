@@ -284,8 +284,6 @@ public class BackendLogic {
                     System.out.print("\rProgression création ArticlesInBong.txt: " + percentage + "%");
                 }
             }
-
-            System.out.print("\rProgression création ArticlesInBong.txt terminée\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
