@@ -33,6 +33,9 @@ public class BackendLogic {
     }
 
     private static void register() {
+        String startDateLog = String.valueOf(LocalDate.now());
+        String startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+
         /*
         Création des fichiers principaux.
          */
@@ -52,7 +55,12 @@ public class BackendLogic {
 
         for (String fileNameStr : allFileNames) {
             String key = cutArticleCode(fileNameStr);
-            int value = cutArticleVersion(fileNameStr);
+            int value = Integer.MAX_VALUE;
+            try {
+                value = cutArticleVersion(fileNameStr);
+            } catch (NumberFormatException e) {
+
+            }
 
             fileWithVersion.put(key, value);
         }
@@ -63,9 +71,6 @@ public class BackendLogic {
         articleCodeNotUpdated.
          */
 
-        int total = fileWithVersion.size();
-        int current = 0;
-
         for (Map.Entry<String, Integer> entry : fileWithVersion.entrySet()) {
             String codeArticle = entry.getKey();
 
@@ -74,12 +79,6 @@ public class BackendLogic {
 
             if (lastVersion > actualVersion) {
                 articleCodeNotUpdated.add(codeArticle);
-            }
-
-            current++;
-            if (current % 100 == 0 || current == total) {
-                int percentage = (int) (((float) current / total) * 100);
-                System.out.print("\rProgression comparaison versions: " + percentage + "%");
             }
         }
 
@@ -117,7 +116,7 @@ public class BackendLogic {
         /*
         Création du fichier ArticlesInBong.txt à partir du fichier ArticlesOutBong.txt déjà existant et des nouveaux codes articles.
         */
-        createArticleInBongFile(fileOUT, newArticleCodeNotPresentInOutFile);
+        createArticleInBongFile(fileOUT, newArticleCodeNotPresentInOutFile, startDateLog, startHourLog);
     }
 
     /**
@@ -257,11 +256,7 @@ public class BackendLogic {
      * @param newArticleCodeNotPresentInOutFile : La liste des codes articles dans le dossier principal, mais absents du
      *                                          fichier ArticlesOutBong.txt.
      */
-    private static void createArticleInBongFile(File fileOUT, List<String> newArticleCodeNotPresentInOutFile) {
-        String startDateLog = String.valueOf(LocalDate.now());
-        String startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
-
-
+    private static void createArticleInBongFile(File fileOUT, List<String> newArticleCodeNotPresentInOutFile, String startDateLog, String startHourLog) {
         File fileIN = new File(ARTICLES_IN_BONG_PATH);
 
         if (!fileIN.exists()) {
@@ -279,8 +274,6 @@ public class BackendLogic {
              BufferedWriter bw = new BufferedWriter(writer)) {
 
             List<String> allLinesOut = getAllLinesInOutFile(fileOUT);
-            int totalLines = allLinesOut.size() + newArticleCodeNotPresentInOutFile.size();
-            int currentLine = 0;
 
             /*
             Récupération de tous les codes articles du fichier ArticlesOutBong.txt
@@ -289,12 +282,6 @@ public class BackendLogic {
             for (String line : allLinesOut) {
                 String articleCode = line.split(";")[0];
                 bw.write(articleCode + "\n");
-
-                currentLine++;
-                if (currentLine % 100 == 0 || currentLine == totalLines) {
-                    int percentage = (int) (((float) currentLine / totalLines) * 100);
-                    System.out.print("\rProgression création ArticlesInBong.txt: " + percentage + "%");
-                }
             }
 
             /*
@@ -302,12 +289,6 @@ public class BackendLogic {
              */
             for (String articleCode : newArticleCodeNotPresentInOutFile) {
                 bw.write(articleCode + "\n");
-
-                currentLine++;
-                if (currentLine % 100 == 0 || currentLine == totalLines) {
-                    int percentage = (int) (((float) currentLine / totalLines) * 100);
-                    System.out.print("\r   Progression création ArticlesInBong.txt: " + percentage + "%");
-                }
             }
         } catch (IOException e) {
             e.printStackTrace();

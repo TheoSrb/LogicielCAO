@@ -172,7 +172,7 @@ public class DatabaseLogic {
 
                     String revision = extractRevision(fileName);
                     String articleCode = fileName.split("_")[0];
-                    String lastModification = fileName.split("_")[1].split("\\.")[0];
+                    String lastModification = fileName.split("_")[fileName.split("_").length - 1].split("\\.")[0];
 
                     // ===== Table Fichier =====
                     psFichier.setString(1, fileName);
@@ -184,7 +184,11 @@ public class DatabaseLogic {
                     psFichier.setString(7, revision);
                     psFichier.setInt(8, 0);
                     psFichier.setString(9, filePath);
-                    psFichier.setInt(10, Integer.parseInt(lastModification));
+                    try {
+                        psFichier.setInt(10, Integer.parseInt(lastModification));
+                    } catch (NumberFormatException e) {
+                        psFichier.setNull(10, java.sql.Types.INTEGER);
+                    }
                     psFichier.setString(11, "");
                     psFichier.addBatch();
 

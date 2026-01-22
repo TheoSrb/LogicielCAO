@@ -51,7 +51,7 @@ public class LogsBuilder {
         if (!logsFile.exists()) {
             try {
                 logsFile.createNewFile();
-                System.out.println("Fichier de log créé avec succès !");
+                System.out.println("\nFichier de log créé avec succès !");
             } catch (IOException e) {
                 e.printStackTrace();
             }

@@ -2,6 +2,7 @@ package org.cao.frontend.frame;
 
 import org.cao.backend.TableBuilder;
 import org.cao.backend.TableRow;
+import org.cao.backend.logs.LogsBuilder;
 import org.cao.frontend.renderer.TableRenderer;
 
 import javax.swing.*;
@@ -9,7 +10,9 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.util.Random;
+import java.util.Scanner;
 
 /**
  *
@@ -60,28 +63,42 @@ public class MainFrame extends JFrame implements ActionListener {
      * Méthdode permettant d'initialiser les lignes du tableau.
      */
     public void initialiseRows() {
-        for (int i = 0; i < 100 ; i++) {
-            TableRow row;
-            Random random = new Random();
+        File logsDirectory = new File(LogsBuilder.LOGS_DIRECTORY);
 
-            // ===== Création et remplissage d'une ligne =====
+        for (File logFile : logsDirectory.listFiles()) {
+            try (Scanner scanner = new Scanner(logFile)) {
+                TableRow row;
+                String line = scanner.nextLine();
+                String[] allLineDatas = line.split(";");
 
-            boolean rowWarning = random.nextInt(10) == 0;
-            boolean rowError = !rowWarning && random.nextInt(20) == 0;
+                String startDate = allLineDatas[0];
+                String startHour = allLineDatas[1];
+                String endDate = allLineDatas[2];
+                String endHour = allLineDatas[3];
+                String task = allLineDatas[4];
+                String operation = allLineDatas[5];
+                boolean isError = Boolean.parseBoolean(allLineDatas[6]);
+                boolean isWarning = Boolean.parseBoolean(allLineDatas[6]);
 
-            row = new TableRow.TableRowBuilder()
-                    .withStartDate("[Date Début] " + String.valueOf(i))
-                    .withStartHour("[Heure Début]")
-                    .withEndDate("[Date Fin]")
-                    .withEndHour("[Heure Fin]")
-                    .withTask("[Tâche]")
-                    .withOperation("[Opération]")
-                    .withError(rowError)
-                    .withWarning(rowWarning)
-                    .build();
+                // ===== Création et remplissage d'une ligne =====
 
-            // ===== Affctation de cette ligne au constructeur du futur tableau principal =====
-            tableBuilder.addRow(row);
+                row = new TableRow.TableRowBuilder()
+                        .withStartDate(startDate)
+                        .withStartHour(startHour)
+                        .withEndDate(endDate)
+                        .withEndHour(endHour)
+                        .withTask(task)
+                        .withOperation(operation)
+                        .withError(isError)
+                        .withWarning(isWarning)
+                        .build();
+
+                // ===== Affctation de cette ligne au constructeur du futur tableau principal =====
+                tableBuilder.addRow(row);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
