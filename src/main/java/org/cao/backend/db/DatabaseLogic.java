@@ -79,10 +79,10 @@ public class DatabaseLogic {
 
                 // ===== Table Compteurs =====
 
-            /*
-            On insère les données dans la table Compteurs ici, car il y a seulement une ligne à remplir, mettre la requête dans la
-            boucle plus bas multipirais le temps de traitement.
-             */
+                /*
+                On insère les données dans la table Compteurs ici, car il y a seulement une ligne à remplir, mettre la requête dans la
+                boucle plus bas multipirais le temps de traitement.
+                 */
 
                 File mainDirectory = new File(BackendLogic.DIRECTORY_PATH);
 
@@ -211,11 +211,6 @@ public class DatabaseLogic {
             e.printStackTrace();
         }
     }
-
-
-
-    // TODO Je pense que dans la base acces dans Fichier, le reste des fichier qu'il me manque c'est soit un truc de version (tout avoir)
-    // TODO soit le reste des fichiers pdf dans PDFS_online qui ne sont PAS dans le reste des fichiers type CONFIG_online, ELEC_online, etc..
 
     // TODO ATENTION CORRIGER, la DernvRev c'est pas le chiffre de Revision, c'est autre chose.
 
