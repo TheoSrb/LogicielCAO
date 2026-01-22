@@ -29,9 +29,7 @@ public class BackendLogic {
     // =============== Méthodes ===============
 
     static void main() {
-        //register();
-
-        System.out.println(isValidPath(Path.of("C:\\Users\\theosarbachfischer\\Desktop\\cao2016\\publi_web\\PDFS_online\\TODEL")));
+        register();
     }
 
     private static void register() {
