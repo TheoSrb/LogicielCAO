@@ -223,6 +223,11 @@ public class DatabaseLogic {
 
     // TODO ATENTION CORRIGER, la DernRev c'est pas le chiffre de Revision, c'est autre chose.
 
+    /**
+     * Méthode permettan de créer un cache pour les fichiers, afin de raccourcir le temps de traitement.
+     * @param directoryPath : Le chemin du dossier main.
+     * @return Une hashmap qui correspond au cache en question.
+     */
     private static Map<String, File> buildFileCache(String directoryPath) {
         Map<String, File> cache = new HashMap<>();
         Path root = Paths.get(directoryPath);
@@ -247,6 +252,12 @@ public class DatabaseLogic {
         return cache;
     }
 
+    /**
+     * Méthode qui permet de comparer les versions de deux fichiers .pdf.
+     * @param newFile : Un nouveau fichier .pdf.
+     * @param existingFile : Un fichier .pdf déjà existant.
+     * @return Le résultat de si jamais le nouveau fichier est réellement plus récent que l'ancien.
+     */
     private static boolean isNewerVersion(File newFile, File existingFile) {
         String newVersion = extractRevision(newFile.getName());
         String existingVersion = extractRevision(existingFile.getName());
@@ -258,6 +269,11 @@ public class DatabaseLogic {
         }
     }
 
+    /**
+     * Méthode permettant d'extraire la révision d'un fichier à partir de son nom (il prendra toujours la paartie après le dernier "_" du nom).
+     * @param fileName : Le nom du fichier .pdf.
+     * @return La chaîne de caractère correspondant à la révision du fichier.
+     */
     private static String extractRevision(String fileName) {
         if (fileName.contains("_")) {
             String[] parts = fileName.split("_");
