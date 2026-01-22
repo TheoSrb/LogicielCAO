@@ -264,7 +264,7 @@ public class DatabaseLogic {
         if (fileName.contains("_")) {
             String[] parts = fileName.split("_");
             if (parts.length > 1) {
-                return parts[1].split("\\.")[0];
+                return parts[parts.length - 1].split("\\.")[0];
             }
         }
         return "";
