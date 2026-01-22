@@ -267,7 +267,7 @@ public class BackendLogic {
                 e.printStackTrace();
             }
         } else {
-            System.err.println("Le fichier ArticlesInBong.txt existe déjà, ce dernier va être mis à jour.");
+            System.out.println("Le fichier ArticlesInBong.txt existe déjà, ce dernier va être mis à jour.");
         }
 
         try (FileWriter writer = new FileWriter(fileIN);
