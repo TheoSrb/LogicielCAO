@@ -65,6 +65,8 @@ public class BackendLogic {
             fileWithVersion.put(key, value);
         }
 
+        System.out.println(fileWithVersion);    // TODO /!\ ICI, PROBLEME AVEC LA HASH_MAP, MISE A JOUR IMPOSSIBLE /!\
+
         /*
         On compare la version d'un code article du dossier principal au même code article dans le fichier ArticlesOutBong.txt.
         Si la version du dossier est supérieure (donc plus récente) à celle du fichier, on ajoute le code article à la liste
