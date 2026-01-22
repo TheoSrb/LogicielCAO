@@ -1,7 +1,6 @@
 package org.cao.backend.db;
 
 import org.cao.backend.BackendLogic;
-import org.cao.backend.exception.SQLDataAlreadyExistInTable;
 
 import java.io.File;
 import java.io.IOException;

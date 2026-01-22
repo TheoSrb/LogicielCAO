@@ -1,7 +1,12 @@
 package org.cao.backend;
 
+import org.cao.backend.logs.LogsBuilder;
+
 import java.io.*;
 import java.nio.file.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -203,7 +208,7 @@ public class BackendLogic {
      * @return Le code article du fichier.
      */
     private static String cutArticleCode(String fileName) {
-        return fileName.split("_")[0];
+        return fileName.split("_")[fileName.split("_").length - 1];
     }
 
     /**
@@ -212,7 +217,7 @@ public class BackendLogic {
      * @return La version du fichier.
      */
     private static int cutArticleVersion(String fileName) {
-        return Integer.parseInt(fileName.split("_")[1]);
+        return Integer.parseInt(fileName.split("_")[fileName.split("_").length - 1]);
     }
 
     /**
@@ -253,6 +258,10 @@ public class BackendLogic {
      *                                          fichier ArticlesOutBong.txt.
      */
     private static void createArticleInBongFile(File fileOUT, List<String> newArticleCodeNotPresentInOutFile) {
+        String startDateLog = String.valueOf(LocalDate.now());
+        String startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+
+
         File fileIN = new File(ARTICLES_IN_BONG_PATH);
 
         if (!fileIN.exists()) {
@@ -303,6 +312,21 @@ public class BackendLogic {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        String endDateLog = String.valueOf(LocalDate.now());
+        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+
+        LogsBuilder logsBuilder = new LogsBuilder(
+                startDateLog,
+                startHourLog,
+                endDateLog,
+                endHourLog,
+                "[Tâche]",
+                "[Opération]",
+                false,
+                false
+        );
+        logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
     }
 
     /**
