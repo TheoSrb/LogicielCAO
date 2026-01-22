@@ -192,7 +192,7 @@ public class DatabaseLogic {
                     } catch (NumberFormatException e) {
                         psFichier.setNull(10, java.sql.Types.INTEGER);
                     }
-                    psFichier.setString(11, "");
+                    psFichier.setString(11, "0");
                     psFichier.addBatch();
 
                     $$0++;
