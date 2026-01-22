@@ -65,7 +65,7 @@ public class BackendLogic {
             fileWithVersion.put(key, value);
         }
 
-        System.out.println(fileWithVersion);    // TODO /!\ ICI, PROBLEME AVEC LA HASH_MAP, MISE A JOUR IMPOSSIBLE /!\
+        System.out.println(fileWithVersion);    // TODO /!\ ICI, PROBLEME AVEC LA HASH_MAP, MISE A JOUR IMPOSSIBLE. DEGAGER LE TRY /!\
 
         /*
         On compare la version d'un code article du dossier principal au même code article dans le fichier ArticlesOutBong.txt.
