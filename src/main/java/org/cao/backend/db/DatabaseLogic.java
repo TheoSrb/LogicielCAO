@@ -215,7 +215,7 @@ public class DatabaseLogic {
         }
     }
 
-    // TODO ATENTION CORRIGER, la DernvRev c'est pas le chiffre de Revision, c'est autre chose.
+    // TODO ATENTION CORRIGER, la DernRev c'est pas le chiffre de Revision, c'est autre chose.
 
     private static Map<String, File> buildFileCache(String directoryPath) {
         Map<String, File> cache = new HashMap<>();
