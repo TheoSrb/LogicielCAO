@@ -29,7 +29,9 @@ public class BackendLogic {
     // =============== Méthodes ===============
 
     static void main() {
-        register();
+        //register();
+
+        System.out.println(isValidPath(Path.of("C:\\Users\\theosarbachfischer\\Desktop\\cao2016\\publi_web\\PDFS_online\\TODEL")));
     }
 
     private static void register() {
@@ -126,7 +128,13 @@ public class BackendLogic {
      * @return Une liste de noms de fichiers PDF sans extension
      */
     public static List<String> getAllFilesNamesInDirectory(Path mainDirectory) {
-        try (var stream = Files.walk(mainDirectory)
+        try (var stream = Files.walk(mainDirectory, Integer.MAX_VALUE, FileVisitOption.FOLLOW_LINKS)
+                .filter(path -> {
+                    if (Files.isDirectory(path)) {
+                        return isAuthorizedDirectory(path);
+                    }
+                    return true;
+                })
                 .parallel()
                 .filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".pdf"))
@@ -153,7 +161,13 @@ public class BackendLogic {
      * @return Une liste d'objets File correspondant aux fichiers PDF
      */
     public static List<File> getAllFilesInDirectory(Path mainDirectory) {
-        try (var stream = Files.walk(mainDirectory)
+        try (var stream = Files.walk(mainDirectory, Integer.MAX_VALUE, FileVisitOption.FOLLOW_LINKS)
+                .filter(path -> {
+                    if (Files.isDirectory(path)) {
+                        return isAuthorizedDirectory(path);
+                    }
+                    return true;
+                })
                 .parallel()
                 .filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".pdf"))
@@ -169,16 +183,26 @@ public class BackendLogic {
         }
     }
 
+    /**
+     * Méthode permettant de vérifier si un dossier est autorisé à être exploré.
+     * @param directory : Le dossier à vérifier.
+     * @return Un booléen indiquant si le dossier peut être exploré.
+     */
+    private static boolean isAuthorizedDirectory(Path directory) {
+        File directoryFile = new File(directory.toUri());
+        return directory.equals(directory.getRoot()) || AUTHORIZED_FOLDERS_NAMES.contains(directoryFile.getName());
+    }
 
     /**
-     * Méthode permettant de vérifier si le chemin contient un dossier autorisé à être exploré.
+     * Méthode permettant de vérifier si le chemin contient un dossier autorisé.
      * @param path : Le chemin à vérifier.
      * @return Un booléen indiquant si le chemin est autorisé.
      */
     private static boolean isValidPath(Path path) {
         String pathString = path.toString();
-        return AUTHORIZED_FOLDERS_NAMES.stream()
-                .anyMatch(pathString::contains);
+        // On ne veut pas vérifier ces dossiers dans PDFS_online
+        if (pathString.contains("TODEL") || pathString.contains("Pochoirs")) return false;
+        return AUTHORIZED_FOLDERS_NAMES.stream().anyMatch(pathString::contains);
     }
 
     /**
@@ -307,6 +331,7 @@ public class BackendLogic {
                 false,
                 false
         );
+
         logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
     }
 

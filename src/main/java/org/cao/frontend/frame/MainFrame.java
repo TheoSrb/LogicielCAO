@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -65,39 +66,41 @@ public class MainFrame extends JFrame implements ActionListener {
     public void initialiseRows() {
         File logsDirectory = new File(LogsBuilder.LOGS_DIRECTORY);
 
-        for (File logFile : logsDirectory.listFiles()) {
-            try (Scanner scanner = new Scanner(logFile)) {
-                TableRow row;
-                String line = scanner.nextLine();
-                String[] allLineDatas = line.split(";");
+        if (Objects.requireNonNull(logsDirectory.listFiles()).length > 0) {
+            for (File logFile : logsDirectory.listFiles()) {
+                try (Scanner scanner = new Scanner(logFile)) {
+                    TableRow row;
+                    String line = scanner.nextLine();
+                    String[] allLineDatas = line.split(";");
 
-                String startDate = allLineDatas[0];
-                String startHour = allLineDatas[1];
-                String endDate = allLineDatas[2];
-                String endHour = allLineDatas[3];
-                String task = allLineDatas[4];
-                String operation = allLineDatas[5];
-                boolean isError = Boolean.parseBoolean(allLineDatas[6]);
-                boolean isWarning = Boolean.parseBoolean(allLineDatas[6]);
+                    String startDate = allLineDatas[0];
+                    String startHour = allLineDatas[1];
+                    String endDate = allLineDatas[2];
+                    String endHour = allLineDatas[3];
+                    String task = allLineDatas[4];
+                    String operation = allLineDatas[5];
+                    boolean isError = Boolean.parseBoolean(allLineDatas[6]);
+                    boolean isWarning = Boolean.parseBoolean(allLineDatas[7]);
 
-                // ===== Création et remplissage d'une ligne =====
+                    // ===== Création et remplissage d'une ligne =====
 
-                row = new TableRow.TableRowBuilder()
-                        .withStartDate(startDate)
-                        .withStartHour(startHour)
-                        .withEndDate(endDate)
-                        .withEndHour(endHour)
-                        .withTask(task)
-                        .withOperation(operation)
-                        .withError(isError)
-                        .withWarning(isWarning)
-                        .build();
+                    row = new TableRow.TableRowBuilder()
+                            .withStartDate(startDate)
+                            .withStartHour(startHour)
+                            .withEndDate(endDate)
+                            .withEndHour(endHour)
+                            .withTask(task)
+                            .withOperation(operation)
+                            .withError(isError)
+                            .withWarning(isWarning)
+                            .build();
 
-                // ===== Affctation de cette ligne au constructeur du futur tableau principal =====
-                tableBuilder.addRow(row);
+                    // ===== Affctation de cette ligne au constructeur du futur tableau principal =====
+                    tableBuilder.addRow(row);
 
-            } catch (Exception e) {
-                e.printStackTrace();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -143,6 +146,12 @@ public class MainFrame extends JFrame implements ActionListener {
      * Méthode permettant d'afficher les éléments de la fenêtre.
      */
     public void startDisplaying() {
+        File logsDirectory = new File(LogsBuilder.LOGS_DIRECTORY);
+        if (Objects.requireNonNull(logsDirectory.listFiles()).length <= 0) {
+            System.err.println("Erreur : le dossier des logs est vide.");
+            return;
+        }
+
         this.add(scrollPane);
         this.pack();
         this.setVisible(true);

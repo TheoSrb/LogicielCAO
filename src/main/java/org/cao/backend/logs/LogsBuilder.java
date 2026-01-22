@@ -42,6 +42,16 @@ public class LogsBuilder {
     // =============== Méthode ===============
 
     public void updateLogsFile(String mainFolderPath) {
+        File directory = new File(mainFolderPath);
+
+        if (!directory.exists()) {
+            try {
+                directory.mkdir();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
         String logsFileName = LocalDateTime.now().format(formatter) + "_CAO.txt";
