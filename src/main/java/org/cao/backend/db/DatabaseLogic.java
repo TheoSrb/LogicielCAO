@@ -23,9 +23,7 @@ public class DatabaseLogic {
     private static final int BATCH_SIZE = 1000;  // Gère la vitesse du traitement.
 
     static void main() {
-
         updateDatabase(true);
-
     }
 
     /**
