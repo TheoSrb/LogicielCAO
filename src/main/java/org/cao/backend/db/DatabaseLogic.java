@@ -9,10 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DatabaseLogic {
 
@@ -129,15 +126,21 @@ public class DatabaseLogic {
                     String revision = file != null ? extractRevision(file.getName()) : "";
 
                     // ===== Table ArticleCAN =====
-                    psArticle.setString(1, articleCode);
-                    psArticle.setString(2, "");
-                    psArticle.setString(3, "");
-                    psArticle.setString(4, "");
-                    psArticle.setString(5, description);
-                    psArticle.setString(6, "");
-                    psArticle.setString(7, "");
-                    psArticle.setString(8, "");
-                    psArticle.addBatch();
+                    /*
+                    Regarde simplement si jamais le code article possède bien une vraie définition (c'est le même fonctionnement que
+                    la base de données Access). Autrement dit, on ajoute uniquement les codes articles qui ont une définition juste et non du vide.
+                    */
+                    if (!Objects.equals(description, "") && !description.isEmpty()) {
+                        psArticle.setString(1, articleCode);
+                        psArticle.setString(2, "");
+                        psArticle.setString(3, "");
+                        psArticle.setString(4, "");
+                        psArticle.setString(5, description);
+                        psArticle.setString(6, "");
+                        psArticle.setString(7, "");
+                        psArticle.setString(8, "");
+                        psArticle.addBatch();
+                    }
 
                     // ===== Table TabInt =====
                     psTabInt.setString(1, fileType);
