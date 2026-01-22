@@ -47,11 +47,14 @@ public class DatabaseLogic {
                 truncateArticleCANTable(statement);
                 truncateFichierTable(statement);
                 truncateCompteursTable(statement);
+                truncateTabIntTable(statement);
             }
 
             statement.execute("ALTER INDEX ALL ON ArticleCAN DISABLE");
             statement.execute("ALTER INDEX ALL ON Fichier DISABLE");
             statement.execute("ALTER INDEX ALL ON Compteurs DISABLE");
+            statement.execute("ALTER INDEX ALL ON Activites DISABLE");
+            statement.execute("ALTER INDEX ALL ON TabInt DISABLE");
 
             Map<String, File> fileCache = buildFileCache(BackendLogic.DIRECTORY_PATH);
 
@@ -212,6 +215,8 @@ public class DatabaseLogic {
             statement.execute("ALTER INDEX ALL ON ArticleCAN REBUILD");
             statement.execute("ALTER INDEX ALL ON Fichier REBUILD");
             statement.execute("ALTER INDEX ALL ON Compteurs REBUILD");
+            statement.execute("ALTER INDEX ALL ON Activites REBUILD");
+            statement.execute("ALTER INDEX ALL ON TabInt REBUILD");
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -337,6 +342,15 @@ public class DatabaseLogic {
      */
     public static void truncateCompteursTable(Statement statement) throws SQLException {
         statement.execute("TRUNCATE TABLE Compteurs");
+    }
+
+    /**
+     * Méthode permettant de vider complètement les données de la table TabInt.
+     * @param statement : État de la base de données.
+     * @throws SQLException : Évite les erreurs SQL.
+     */
+    public static void truncateTabIntTable(Statement statement) throws SQLException {
+        statement.execute("TRUNCATE TABLE TabInt");
     }
 
     /**
