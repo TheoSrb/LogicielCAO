@@ -7,11 +7,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class DatabaseHelper {
+public class DatabaseManager {
 
-    private static final String URL = BackendLogic.readProperty("db.url")
-            + ";sendStringParametersAsUnicode=false"
-            + ";rewriteBatchedStatements=true";
+    private static final String URL = BackendLogic.readProperty("db.url") + ";sendStringParametersAsUnicode=false" + ";rewriteBatchedStatements=true";
     private static final String USER = BackendLogic.readProperty("db.user");
     private static final String PASSWORD = BackendLogic.readProperty("db.password");
 
@@ -31,6 +29,7 @@ public class DatabaseHelper {
         }
     }
 
+
     private static void startConnectionWithDatabase() {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
@@ -38,5 +37,4 @@ public class DatabaseHelper {
             e.printStackTrace();
         }
     }
-
 }
