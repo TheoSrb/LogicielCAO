@@ -176,7 +176,6 @@ public class BackendLogic {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                 }
-
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (file.getFileName().toString().toLowerCase().endsWith(".pdf") && isValidPath(file)) {
