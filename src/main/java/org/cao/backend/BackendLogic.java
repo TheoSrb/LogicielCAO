@@ -4,6 +4,7 @@ import org.cao.backend.logs.LogsBuilder;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -161,26 +162,34 @@ public class BackendLogic {
      * @return Une liste d'objets File correspondant aux fichiers PDF
      */
     public static List<File> getAllFilesInDirectory(Path mainDirectory) {
-        try (var stream = Files.walk(mainDirectory, Integer.MAX_VALUE, FileVisitOption.FOLLOW_LINKS)
-                .filter(path -> {
-                    if (Files.isDirectory(path)) {
-                        return isAuthorizedDirectory(path);
+        List<File> pdfFiles = new ArrayList<>();
+
+        try {
+            Files.walkFileTree(mainDirectory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    if (isAuthorizedDirectory(dir)) {
+                        System.out.println("Dossier : " + dir + " | Autorisé ? true");
+                        return FileVisitResult.CONTINUE;
+                    } else {
+                        System.out.println("Dossier : " + dir + " | Autorisé ? false");
+                        return FileVisitResult.SKIP_SUBTREE;
                     }
-                    return true;
-                })
-                .parallel()
-                .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().toLowerCase().endsWith(".pdf"))
-                .filter(path -> isValidPath(path))) {
+                }
 
-            return stream
-                    .map(Path::toFile)
-                    .collect(Collectors.toList());
-
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (file.getFileName().toString().toLowerCase().endsWith(".pdf") && isValidPath(file)) {
+                        pdfFiles.add(file.toFile());
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             e.printStackTrace();
-            return new ArrayList<>();
         }
+
+        return pdfFiles;
     }
 
     /**
@@ -200,9 +209,6 @@ public class BackendLogic {
      */
     private static boolean isValidPath(Path path) {
         String pathString = path.toString();
-        File file = new File(pathString);
-        String fileName = file.getName();
-        if (!AUTHORIZED_FOLDERS_NAMES.contains(fileName)) return false;
         return AUTHORIZED_FOLDERS_NAMES.stream().anyMatch(pathString::contains);
     }
 
