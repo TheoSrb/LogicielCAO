@@ -11,9 +11,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.util.Objects;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  *
@@ -61,13 +59,16 @@ public class MainFrame extends JFrame implements ActionListener {
     }
 
     /**
-     * Méthdode permettant d'initialiser les lignes du tableau.
+     * Méthode permettant d'initialiser les lignes du tableau.
      */
     public void initialiseRows() {
         File logsDirectory = new File(LogsBuilder.LOGS_DIRECTORY);
 
         if (Objects.requireNonNull(logsDirectory.listFiles()).length > 0) {
-            for (File logFile : logsDirectory.listFiles()) {
+            File[] logFiles = logsDirectory.listFiles();
+            Arrays.sort(logFiles, Comparator.comparingLong(File::lastModified).reversed());
+
+            for (File logFile : logFiles) {
                 try (Scanner scanner = new Scanner(logFile)) {
                     TableRow row;
                     String line = scanner.nextLine();
@@ -95,7 +96,7 @@ public class MainFrame extends JFrame implements ActionListener {
                             .withWarning(isWarning)
                             .build();
 
-                    // ===== Affctation de cette ligne au constructeur du futur tableau principal =====
+                    // ===== Affectation de cette ligne au constructeur du futur tableau principal =====
                     tableBuilder.addRow(row);
 
                 } catch (Exception e) {

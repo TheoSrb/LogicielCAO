@@ -27,6 +27,8 @@ public class BackendLogic {
      */
     private static Map<String, Integer> fileWithVersion = new ConcurrentHashMap<>();
 
+    private static boolean needToUpdateOrAddNewFilesInINFile = false;
+
     // =============== Méthodes ===============
 
     static void main() {
@@ -50,37 +52,48 @@ public class BackendLogic {
         List<String> newArticleCodeNotPresentInOutFile = new ArrayList<>();
 
         /*
+        On charge UNE SEULE FOIS tous les codes articles du fichier OUT dans un Map pour des recherches rapides
+         */
+        Map<String, Integer> outFileVersions = new HashMap<>();
+        for (String lineOut : getAllLinesInOutFile(fileOUT)) {
+            String[] parts = lineOut.split(";");
+            if (parts.length >= 3) {
+                String articleCodeInOut = parts[0].toUpperCase();
+                try {
+                    int version = Integer.parseInt(parts[2]);
+                    outFileVersions.put(articleCodeInOut, version);
+                } catch (NumberFormatException e) {}
+            }
+        }
+
+        /*
         On assigne à la map chaque code article avec sa version depuis le dossier principal.
          */
         List<String> allFileNames = getAllFilesNamesInDirectory(directory);
 
         for (String fileNameStr : allFileNames) {
-            String key = cutArticleCode(fileNameStr);
-            int value = Integer.MAX_VALUE;
             try {
-                value = cutArticleVersion(fileNameStr);
-            } catch (NumberFormatException e) {
+                String key = cutArticleCode(fileNameStr);
+                int value = cutArticleVersion(fileNameStr);
 
-            }
-
-            fileWithVersion.put(key, value);
+                fileWithVersion.put(key, value);
+            } catch (NumberFormatException e) {}
         }
-
-        System.out.println(fileWithVersion);    // TODO /!\ ICI, PROBLEME AVEC LA HASH_MAP, MISE A JOUR IMPOSSIBLE. ENLEVER LE TRY /!\
 
         /*
         On compare la version d'un code article du dossier principal au même code article dans le fichier ArticlesOutBong.txt.
         Si la version du dossier est supérieure (donc plus récente) à celle du fichier, on ajoute le code article à la liste
         articleCodeNotUpdated.
          */
-
         for (Map.Entry<String, Integer> entry : fileWithVersion.entrySet()) {
             String codeArticle = entry.getKey();
-
             int lastVersion = entry.getValue();
-            int actualVersion = findVersionForArticleCode(codeArticle);
 
-            if (lastVersion > actualVersion) {
+            Integer actualVersion = outFileVersions.get(codeArticle);
+
+            if (actualVersion == null) {
+                newArticleCodeNotPresentInOutFile.add(codeArticle);
+            } else if (lastVersion > actualVersion) {
                 articleCodeNotUpdated.add(codeArticle);
             }
         }
@@ -89,32 +102,11 @@ public class BackendLogic {
         Affichage d'un message pour voir s'il faut mettre à jour des plans (et lesquels dans ce cas), ou non.
          */
         if (!articleCodeNotUpdated.isEmpty()) {
-            System.out.println("Des fichiers doivent être mis à jour ! \n   -> Les codes articles qui doivent être mis à jour sont: " + articleCodeNotUpdated);
+            System.out.println(articleCodeNotUpdated.size() + " fichiers doivent être mis à jour ou n'existent pas dans les dossiers ! \n   -> Les codes articles qui doivent être mis à jour sont: " + articleCodeNotUpdated);
+            needToUpdateOrAddNewFilesInINFile = true;
         } else {
             System.out.println("Tous les codes articles sont bien mis à jour !");
         }
-
-        /*
-        On regarde et compare pour chaque code article du dossier, s'il n'existe PAS dans le fichier ArticlesOutBong.txt.
-        Si c'est le cas, on l'ajoute à la liste newArticleCodeNotPresentInOutFile.
-         */
-
-        // On charge UNE SEULE FOIS tous les codes articles du fichier OUT dans un Set pour des recherches rapides
-        Set<String> allArticlesCodeInOut = new HashSet<>();
-        for (String lineOut : getAllLinesInOutFile(fileOUT)) {
-            String articleCodeInOut = lineOut.toUpperCase().split(";")[0];
-            allArticlesCodeInOut.add(articleCodeInOut);
-        }
-
-        // On vérifie chaque fichier par rapport au Set (recherche en O(1) au lieu de O(n))
-        Set<String> uniqueNewCodes = new HashSet<>();
-        for (String fileName : allFileNames) {
-            String articleCode = fileName.toUpperCase().split("_")[0];
-            if (!allArticlesCodeInOut.contains(articleCode)) {
-                uniqueNewCodes.add(articleCode);
-            }
-        }
-        newArticleCodeNotPresentInOutFile.addAll(uniqueNewCodes);
 
         /*
         Création du fichier ArticlesInBong.txt à partir du fichier ArticlesOutBong.txt déjà existant et des nouveaux codes articles.
@@ -237,7 +229,7 @@ public class BackendLogic {
      * @return Le code article du fichier.
      */
     private static String cutArticleCode(String fileName) {
-        return fileName.split("_")[fileName.split("_").length - 1];
+        return fileName.split("_")[fileName.split("_").length - 2];
     }
 
     /**
@@ -247,35 +239,6 @@ public class BackendLogic {
      */
     private static int cutArticleVersion(String fileName) {
         return Integer.parseInt(fileName.split("_")[fileName.split("_").length - 1]);
-    }
-
-    /**
-     * Méthode permettant d'entrer un code article et d'avoir sa version depuis le fichier ArticlesOutBong.txt.
-     * @param articleCode : Le code article dont on veut la version dans le fichier ArticlesOutBong.txt.
-     * @return La version du code article entré, depuis le fichier ArticlesOutBong.txt.
-     */
-    private static int findVersionForArticleCode(String articleCode) {
-        File fileOut = new File(ARTICLES_OUT_BONG_PATH);
-        int version = Integer.MAX_VALUE;
-
-        try (Scanner scanner = new Scanner(fileOut)) {
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-
-                if (line.contains(articleCode.toUpperCase())) {
-                    version = Integer.parseInt(line.split(";")[2]);
-                    return version;
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        /*
-        Retourne la valeur max de Integer si le code n'est pas trouvé, afin de ne pas l'ajouter
-        dans la liste articleCodeNotUpdated alors qu'il n'existe simplement pas.
-        */
-        return version;
     }
 
     /**
@@ -326,6 +289,7 @@ public class BackendLogic {
 
         String endDateLog = String.valueOf(LocalDate.now());
         String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        boolean isWarningLog = needToUpdateOrAddNewFilesInINFile;
 
         LogsBuilder logsBuilder = new LogsBuilder(
                 startDateLog,
@@ -335,7 +299,7 @@ public class BackendLogic {
                 "[Tâche]",
                 "[Opération]",
                 false,
-                false
+                isWarningLog
         );
 
         logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
