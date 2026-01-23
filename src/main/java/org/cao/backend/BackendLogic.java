@@ -200,8 +200,9 @@ public class BackendLogic {
      */
     private static boolean isValidPath(Path path) {
         String pathString = path.toString();
-        // On ne veut pas vérifier ces dossiers dans PDFS_online
-        if (pathString.contains("TODEL") || pathString.contains("Pochoirs")) return false;
+        File file = new File(pathString);
+        String fileName = file.getName();
+        if (!AUTHORIZED_FOLDERS_NAMES.contains(fileName)) return false;
         return AUTHORIZED_FOLDERS_NAMES.stream().anyMatch(pathString::contains);
     }
 
