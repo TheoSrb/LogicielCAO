@@ -9,7 +9,7 @@ import java.sql.Statement;
 
 public class DatabaseManager {
 
-    private static final String URL = BackendLogic.readProperty("db.url") + ";sendStringParametersAsUnicode=false" + ";rewriteBatchedStatements=true";
+    private static final String URL = BackendLogic.readProperty("db.url");
     private static final String USER = BackendLogic.readProperty("db.user");
     private static final String PASSWORD = BackendLogic.readProperty("db.password");
 
