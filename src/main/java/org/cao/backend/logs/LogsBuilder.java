@@ -1,6 +1,7 @@
 package org.cao.backend.logs;
 
 import org.cao.backend.BackendLogic;
+import org.cao.backend.errors.ErrorBuilder;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -26,7 +27,9 @@ public class LogsBuilder {
     private boolean isError;
     private boolean isWarning;
 
-    // =============== Constructeur ===============
+    private ErrorBuilder errorBuilder;
+
+    // =============== Constructeurs ===============
 
     public LogsBuilder(String startDate, String startHour, String endDate, String endHour, String task, String operation, boolean isError, boolean isWarning) {
         this.startDate = startDate;
@@ -37,6 +40,19 @@ public class LogsBuilder {
         this.operation = operation;
         this.isError = isError;
         this.isWarning = isWarning;
+    }
+
+    public LogsBuilder(String startDate, String startHour, String endDate, String endHour, String task, String operation, boolean isError, boolean isWarning, ErrorBuilder errorBuilder) {
+        this.startDate = startDate;
+        this.startHour = startHour;
+        this.endDate = endDate;
+        this.endHour = endHour;
+        this.task = task;
+        this.operation = operation;
+        this.isError = isError;
+        this.isWarning = isWarning;
+
+        this.errorBuilder = errorBuilder;
     }
 
     // =============== Méthode ===============
@@ -83,6 +99,8 @@ public class LogsBuilder {
             boolean isError = this.isError;
             boolean isWarning = this.isWarning;
 
+            ErrorBuilder errorBuilder = this.errorBuilder;
+
             bw.write(
                     startDate + ";"
                         + startHour + ";"
@@ -93,6 +111,10 @@ public class LogsBuilder {
                         + isError + ";"
                         + isWarning
             );
+
+            if (errorBuilder != null) {
+                bw.write("\n\n[ERROR] " + "[" + errorBuilder.getErrorDate() + "_" + errorBuilder.getErrorHour() + "] " + errorBuilder.getErrorDescription());
+            }
 
             bw.close();
             writer.close();

@@ -1,6 +1,6 @@
 package org.cao.frontend.renderer;
 
-import org.cao.backend.TableRow;
+import org.cao.backend.helper.TableRow;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;

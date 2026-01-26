@@ -1,12 +1,11 @@
 package org.cao.frontend.frame;
 
-import org.cao.backend.TableBuilder;
-import org.cao.backend.TableRow;
+import org.cao.backend.helper.TableBuilder;
+import org.cao.backend.helper.TableRow;
 import org.cao.backend.logs.LogsBuilder;
 import org.cao.frontend.renderer.TableRenderer;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;

@@ -1,12 +1,17 @@
 package org.cao.backend.db;
 
 import org.cao.backend.BackendLogic;
-import org.cao.backend.FileHelper;
+import org.cao.backend.errors.ErrorBuilder;
+import org.cao.backend.helper.FileHelper;
+import org.cao.backend.logs.LogsBuilder;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class DatabaseManager {
@@ -21,6 +26,15 @@ public class DatabaseManager {
 
     public static final List<String> AUTHORIZED_FOLDERS_NAMES = separateAllAuthorizedFolders(readProperty("authorized.explore.folders"));
 
+
+    private static String startDateLog;
+    private static String startHourLog;
+
+    private static boolean isErrorLog = false;
+    private static boolean isWarningLog = false;
+
+    private static ErrorBuilder potentialError = null;
+
     static void main() {
         updateDatabase();
     }
@@ -28,14 +42,36 @@ public class DatabaseManager {
     private static void updateDatabase() {
         startConnectionWithDatabase();
 
+        startDateLog = String.valueOf(LocalDate.now());
+        startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+
         try (Connection con = DriverManager.getConnection(URL, USER, PASSWORD); Statement statement = con.createStatement()) {
 
-            //fillFichierTable(con, statement);
-            fillArticleCANTable(con, statement);
+            fillFichierTable(con, statement);
+            fillArticleCANTable(con);
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    private static void createLog(String task, String operation, ErrorBuilder potentialError) {
+        String endDateLog = String.valueOf(LocalDate.now());
+        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+
+        LogsBuilder logsBuilder = new LogsBuilder(
+                startDateLog,
+                startHourLog,
+                endDateLog,
+                endHourLog,
+                task,
+                operation,
+                isErrorLog,
+                isWarningLog,
+                potentialError
+        );
+
+        logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
     }
 
 
@@ -47,55 +83,90 @@ public class DatabaseManager {
         }
     }
 
-    private static void fillArticleCANTable(Connection con, Statement statement) throws SQLException {
+    private static void fillArticleCANTable(Connection con) throws SQLException {
         File fileOut = new File(ARTICLES_OUT_BONG_PATH);
         FileHelper fileHelper = new FileHelper(fileOut);
 
         List<String> lines = fileHelper.readAllLines();
+        long maxLines = lines.stream()
+                .map(l -> l.split(";", -1))
+                .filter(p -> p.length >= 2 && !p[1].trim().isEmpty())
+                .count();
+
         int i = 0;
-        int maxLines = lines.size();
 
-        for (String line : lines) {
-            String codeCAN = line.split(";")[0];
-            String descCAN = line.split(";")[1];
-            String query;
+        String mergeQuery =
+                "MERGE ArticleCAN AS target " +
+                        "USING (SELECT ? AS CodeCAN, ? AS DescCAN) AS source " +
+                        "ON target.CodeCAN = source.CodeCAN " +
+                        "WHEN MATCHED THEN " +
+                        "  UPDATE SET DescCAN = source.DescCAN " +
+                        "WHEN NOT MATCHED THEN " +
+                        "  INSERT (CodeCAN, LP, AchFab, Statut, DescCAN, DescCANUK, UM, Matiere) " +
+                        "  VALUES (source.CodeCAN, '.', '.', '.', source.DescCAN, '.', '.', '.');";
 
-            if (descCAN.isEmpty() || descCAN.equals(" ")) continue;
+        con.setAutoCommit(false);
 
-            boolean alreadyInserted = codeCANAlreadyExist(con, codeCAN);
+        try (PreparedStatement ps = con.prepareStatement(mergeQuery)) {
 
-            if (alreadyInserted) {
-                query = "UPDATE ArticleCAN SET DescCAN = ? WHERE CodeCAN = ?";
-            } else {
-                query = "INSERT INTO ArticleCAN(CodeCAN, LP, AchFab, Statut, DescCAN, DescCANUK, UM, Matiere) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            }
+            for (String line : lines) {
+                String[] parts = line.split(";", -1);
+                if (parts.length < 2) continue;
 
-            try (PreparedStatement preparedStatement = con.prepareStatement(query)) {
-                if (alreadyInserted) {
-                    preparedStatement.setString(1, descCAN);
-                    preparedStatement.setString(2, codeCAN);
-                } else {
-                    preparedStatement.setString(1, codeCAN);
-                    preparedStatement.setString(2, ".");
-                    preparedStatement.setString(3, ".");
-                    preparedStatement.setString(4, ".");
-                    preparedStatement.setString(5, descCAN);
-                    preparedStatement.setString(6, ".");
-                    preparedStatement.setString(7, ".");
-                    preparedStatement.setString(8, ".");
+                String codeCAN = parts[0].trim();
+                String descCAN = parts[1].trim();
+
+                if (descCAN.isEmpty()) continue;
+
+                ps.setString(1, codeCAN);
+                ps.setString(2, descCAN);
+                ps.addBatch();
+
+                i++;
+
+                if (i % 250 == 0) {
+                    ps.executeBatch();
+                    con.commit();
+
+                    int percentage = (int) (((float) i / maxLines) * 100);
+                    System.out.print("\rRemplissage de la table ArticleCAN en cours: " + percentage + "%");
                 }
-
-                preparedStatement.execute();
             }
 
-            i++;
-            int percentage = (int) (((float) i / maxLines) * 100);
-            System.out.print("\rProgression: " + percentage + "%");
+            ps.executeBatch();
+            con.commit();
+        } catch (SQLException e) {
+            con.rollback();
+            throw e;
         }
+
+        String verificationQuery = "SELECT * FROM ArticleCAN WHERE CodeCAN NOT IN (SELECT CodeCAN FROM Fichier);";
+
+        try (PreparedStatement ps = con.prepareStatement(verificationQuery)) {
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                isErrorLog = true;
+                ErrorBuilder error = new ErrorBuilder(
+                        "Codes articles non synchronisés",
+                        "Des codes articles venus de SAP n'ont pas été trouvés dans les dossiers des fichiers PDF."
+                );
+                potentialError = error;
+            }
+        }
+
+
+
+
+
+
+
+        createLog("MAJ BDD", "La base de données à été mise à jour.", potentialError);
     }
 
+
     private static void fillFichierTable(Connection con, Statement statement) throws SQLException {
-        File mainDirectory = new File(BackendLogic.DIRECTORY_PATH);
+        File mainDirectory = new File(DIRECTORY_PATH);
         List<File> files = returnFilesInDirectory(mainDirectory);
         int i = 0;
         int maxFiles = files.size();
@@ -158,21 +229,9 @@ public class DatabaseManager {
 
             i++;
             int percentage = (int) (((float) i / maxFiles) * 100);
-            System.out.print("\rProgression: " + percentage + "%");
+            System.out.print("\rRemplissage de la table Fichier en cours: " + percentage + "%");
         }
     }
-
-    private static boolean codeCANAlreadyExist(Connection con, String codeCAN) throws SQLException {
-        String sql = "SELECT 1 FROM ArticleCAN WHERE CodeCAN = ?";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, codeCAN);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
-
 
     public static List<File> returnFilesInDirectory(File directory) {
         return returnFilesInDirectory(directory, new HashSet<>());
@@ -213,7 +272,7 @@ public class DatabaseManager {
     }
 
     private static boolean isFolderAuthorized(File file) {
-        List<String> foldersNameAuthorized = BackendLogic.AUTHORIZED_FOLDERS_NAMES;
+        List<String> foldersNameAuthorized = AUTHORIZED_FOLDERS_NAMES;
         String folderName = file.getName();
         return foldersNameAuthorized.contains(folderName);
     }
