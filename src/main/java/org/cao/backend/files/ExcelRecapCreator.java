@@ -16,6 +16,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 
+/**
+ *
+ * Classe permettant de créer un fichier Excel servant à répetorier des informations du logiciel ainsi que des logs d'erreurs.
+ *
+ */
 public class ExcelRecapCreator extends FileCreator {
 
     static void main() {
