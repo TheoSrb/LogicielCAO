@@ -11,8 +11,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 
 public class ExcelRecapCreator extends FileCreator {
 
@@ -24,10 +26,10 @@ public class ExcelRecapCreator extends FileCreator {
         erc.createNewFile();
     }
 
-    private String[] returnFilesNumber() {
+    private int[] returnFilesNumber() {
         DatabaseManager.startConnectionWithDatabase();
 
-        String[] filesNumber = {};
+        int[] filesNumber = new int[8];
 
         try (Connection con = DriverManager.getConnection(URL, USER, PASSWORD); Statement statement = con.createStatement()) {
 
@@ -35,6 +37,16 @@ public class ExcelRecapCreator extends FileCreator {
 
             ResultSet resultSet = statement.executeQuery(query);
 
+            if (resultSet.next()) {
+                filesNumber[0] = resultSet.getInt("NbScan");
+                filesNumber[1] = resultSet.getInt("NbPlan");
+                filesNumber[2] = resultSet.getInt("Nb3D");
+                filesNumber[3] = resultSet.getInt("NbAss");
+                filesNumber[4] = resultSet.getInt("NbSchema");
+                filesNumber[5] = resultSet.getInt("NbEclate");
+                filesNumber[6] = resultSet.getInt("NbPFEclate");
+                filesNumber[7] = resultSet.getInt("NbConfig");
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -64,17 +76,19 @@ public class ExcelRecapCreator extends FileCreator {
 
         sheet.createRow(1);
 
+        int[] allCompteursDatas = returnFilesNumber();
+
         Object[][] data = {
-                {"Nombre de Plans:", 60697},
-                {"Nombre d'Eclatés:", 1055},
-                {"Nombre de Scan:", 14537},
-                {"Nombre de Schémas Electriques:", 647},
-                {"Nombre de Configurations Froid:", 861},
+                {"Nombre de Plans:", allCompteursDatas[1]},
+                {"Nombre d'Eclatés:", allCompteursDatas[5]},
+                {"Nombre de Scan:", allCompteursDatas[0]},
+                {"Nombre de Schémas Electriques:", allCompteursDatas[4]},
+                {"Nombre de Configurations Froid:", allCompteursDatas[7]},
                 {"", ""},
-                {"Nombre d'Erreurs Fichier:", 10},
-                {"Nombre d'Erreurs Révision:", 2},
+                {"Nombre d'Erreurs Fichier:", 0},
+                {"Nombre d'Erreurs Révision:", 0},
                 {"Nombre d'Articles Non SAP:", 0},
-                {"Nombre d'Articles Sans Descriptions:", 21079}
+                {"Nombre d'Articles Sans Descriptions:", 0}
         };
 
         int rowNum = 2;
@@ -104,16 +118,24 @@ public class ExcelRecapCreator extends FileCreator {
         sheet.setColumnWidth(0, 8000);
         sheet.setColumnWidth(1, 3000);
 
-        try (FileOutputStream fileOut = new FileOutputStream("GeneratedExcel.xlsx")) {
+        String fileExlName = "MAJBasePlans" + "-" +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + ".xlsx";
+        File fileExl = new File(EXCEL_RECAP_PATH + fileExlName);
+
+        if (fileExl.exists()) {
+            fileExl.delete();
+        }
+
+        try (FileOutputStream fileOut = new FileOutputStream(fileExl)) {
             workbook.write(fileOut);
-            System.out.println("Excel file generated successfully: GeneratedExcel.xlsx");
+            System.out.println("Fichier Excel créé");
         } catch (IOException e) {
-            System.err.println("Error writing Excel file: " + e.getMessage());
+            e.printStackTrace();
         } finally {
             try {
                 workbook.close();
             } catch (IOException e) {
-                System.err.println("Error closing workbook: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
