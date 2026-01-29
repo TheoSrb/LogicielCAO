@@ -49,6 +49,7 @@ public class DatabaseManager {
 
             fillFichierTable(con, statement);
             fillArticleCANTable(con);
+            fillCompteursTable(con);
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -74,12 +75,85 @@ public class DatabaseManager {
         logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
     }
 
-
     public static void startConnectionWithDatabase() {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void fillCompteursTable(Connection con) throws SQLException {
+        startConnectionWithDatabase();
+
+        int nbScan = 0;
+        int nbPlan = 0;
+        int nbSchema = 0;
+        int nbEclate = 0;
+        int nbConfig = 0;
+
+        String countQuery = "SELECT COUNT(*) FROM Fichier WHERE Type = 'SCAN'";
+        try (PreparedStatement ps = con.prepareStatement(countQuery)) {
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                nbScan = rs.getInt(1);
+            }
+        }
+
+        countQuery = "SELECT COUNT(*) FROM Fichier WHERE Type = 'PLAN'";
+        try (PreparedStatement ps = con.prepareStatement(countQuery)) {
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                nbPlan = rs.getInt(1);
+            }
+        }
+
+        countQuery = "SELECT COUNT(*) FROM Fichier WHERE Type = 'ELEC'";
+        try (PreparedStatement ps = con.prepareStatement(countQuery)) {
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                nbSchema = rs.getInt(1);
+            }
+        }
+
+        countQuery = "SELECT COUNT(*) FROM Fichier WHERE Type = 'PLAN_ECL'";
+        try (PreparedStatement ps = con.prepareStatement(countQuery)) {
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                nbEclate = rs.getInt(1);
+            }
+        }
+
+        countQuery = "SELECT COUNT(*) FROM Fichier WHERE Type = 'CONFIG'";
+        try (PreparedStatement ps = con.prepareStatement(countQuery)) {
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                nbConfig = rs.getInt(1);
+            }
+        }
+
+        String deleteQuery = "DELETE FROM Compteurs";
+        try (PreparedStatement ps = con.prepareStatement(deleteQuery)) {
+            ps.executeUpdate();
+        }
+
+        String insertQuery = "INSERT INTO Compteurs (NbScan, NbPlan, Nb3D, NbAss, NbSchema, NbEclate, NbPFEclate, NbConfig) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (PreparedStatement ps = con.prepareStatement(insertQuery)) {
+            ps.setInt(1, nbScan);
+            ps.setInt(2, nbPlan);
+            ps.setInt(3, 0);
+            ps.setInt(4, 0);
+            ps.setInt(5, nbSchema);
+            ps.setInt(6, nbEclate);
+            ps.setInt(7, 0);
+            ps.setInt(8, nbConfig);
+
+            con.commit();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
         }
     }
 
