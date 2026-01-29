@@ -36,7 +36,7 @@ public abstract class FileCreator {
 
     public static void createLog(String task, String operation, ErrorBuilder potentialError) {
         String endDateLog = String.valueOf(LocalDate.now());
-        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         LogsBuilder logsBuilder = new LogsBuilder(
                 startDateLog,

@@ -58,7 +58,7 @@ public class DatabaseManager {
 
     private static void createLog(String task, String operation, ErrorBuilder potentialError) {
         String endDateLog = String.valueOf(LocalDate.now());
-        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         LogsBuilder logsBuilder = new LogsBuilder(
                 startDateLog,
@@ -249,65 +249,88 @@ public class DatabaseManager {
         int i = 0;
         int maxFiles = files.size();
 
-        for (File file : files) {
-            String fileName = file.getName();
-            String fileType = convertParentToType(file.getParentFile().getName());
-            String codeCAN = getCodeCAN(fileName);
-            String revision = getRevision(fileName);
-            String filePath = file.getAbsolutePath();
+        con.setAutoCommit(false);
 
-            String checkQuery = "SELECT COUNT(*) FROM Fichier WHERE CodeCAN = ? AND Revision = ?";
-            boolean exists = false;
-
-            try (PreparedStatement checkStmt = con.prepareStatement(checkQuery)) {
-                checkStmt.setString(1, codeCAN);
-                checkStmt.setString(2, revision);
-                ResultSet rs = checkStmt.executeQuery();
-                if (rs.next() && rs.getInt(1) > 0) {
-                    exists = true;
-                }
+        Set<String> existingKeys = new HashSet<>();
+        String selectQuery = "SELECT CodeCAN, Revision FROM Fichier";
+        try (PreparedStatement ps = con.prepareStatement(selectQuery);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String key = rs.getString("CodeCAN") + "|" + rs.getString("Revision");
+                existingKeys.add(key);
             }
+        }
 
-            String query;
-            if (exists) {
-                query = "UPDATE Fichier SET Nom = ?, RepertoireNom = ?, Type = ?, Chemin = ?, Taille = ?, Page = ?, Lien = ?, DernRev = ?, IncoRev = ?, CodeCAN_Parent = ?, Revision_Parent = ? WHERE CodeCAN = ? AND Revision = ?";
-            } else {
-                query = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev, CodeCAN_Parent, Revision_Parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            }
+        String updateQuery = "UPDATE Fichier SET Nom = ?, RepertoireNom = ?, Type = ?, Chemin = ?, Taille = ?, Page = ?, Lien = ?, DernRev = ?, IncoRev = ?, CodeCAN_Parent = ?, Revision_Parent = ? WHERE CodeCAN = ? AND Revision = ?";
+        String insertQuery = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev, CodeCAN_Parent, Revision_Parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            try (PreparedStatement preparedStatement = con.prepareStatement(query)) {
-                preparedStatement.setString(1, fileName);
-                preparedStatement.setString(2, ".");
-                preparedStatement.setString(3, fileType);
-                preparedStatement.setString(4, ".");
-                preparedStatement.setInt(5, 0);
+        try (PreparedStatement updateStmt = con.prepareStatement(updateQuery);
+             PreparedStatement insertStmt = con.prepareStatement(insertQuery)) {
+
+            for (File file : files) {
+                String fileName = file.getName();
+                String fileType = convertParentToType(file.getParentFile().getName());
+                String codeCAN = getCodeCAN(fileName);
+                String revision = getRevision(fileName);
+                String filePath = file.getAbsolutePath();
+
+                String key = codeCAN + "|" + revision;
+                boolean exists = existingKeys.contains(key);
+
+                PreparedStatement ps = exists ? updateStmt : insertStmt;
+
+                ps.setString(1, fileName);
+                ps.setString(2, ".");
+                ps.setString(3, fileType);
+                ps.setString(4, ".");
+                ps.setInt(5, 0);
 
                 if (exists) {
-                    preparedStatement.setInt(6, 0);
-                    preparedStatement.setString(7, filePath);
-                    preparedStatement.setString(8, "0");
-                    preparedStatement.setString(9, "0");
-                    preparedStatement.setString(10, ".");
-                    preparedStatement.setString(11, ".");
-                    preparedStatement.setString(12, codeCAN);
-                    preparedStatement.setString(13, revision);
+                    ps.setInt(6, 0);
+                    ps.setString(7, filePath);
+                    ps.setString(8, "0");
+                    ps.setString(9, "0");
+                    ps.setString(10, ".");
+                    ps.setString(11, ".");
+                    ps.setString(12, codeCAN);
+                    ps.setString(13, revision);
                 } else {
-                    preparedStatement.setString(6, codeCAN);
-                    preparedStatement.setString(7, revision);
-                    preparedStatement.setInt(8, 0);
-                    preparedStatement.setString(9, filePath);
-                    preparedStatement.setString(10, "0");
-                    preparedStatement.setString(11, "0");
-                    preparedStatement.setString(12, ".");
-                    preparedStatement.setString(13, ".");
+                    ps.setString(6, codeCAN);
+                    ps.setString(7, revision);
+                    ps.setInt(8, 0);
+                    ps.setString(9, filePath);
+                    ps.setString(10, "0");
+                    ps.setString(11, "0");
+                    ps.setString(12, ".");
+                    ps.setString(13, ".");
+                    existingKeys.add(key);
                 }
 
-                preparedStatement.execute();
+                ps.addBatch();
+
+                i++;
+
+                if (i % 100 == 0) {
+                    int percentage = (int) (((float) i / maxFiles) * 100);
+                    System.out.print("\rRemplissage de la table Fichier en cours: " + percentage + "%");
+                }
+
+                if (i % 500 == 0) {
+                    updateStmt.executeBatch();
+                    insertStmt.executeBatch();
+                    con.commit();
+                }
             }
 
-            i++;
-            int percentage = (int) (((float) i / maxFiles) * 100);
-            System.out.print("\rRemplissage de la table Fichier en cours: " + percentage + "%");
+            updateStmt.executeBatch();
+            insertStmt.executeBatch();
+            con.commit();
+
+            System.out.println("\rRemplissage de la table Fichier en cours: 100%");
+
+        } catch (SQLException e) {
+            con.rollback();
+            throw e;
         }
     }
 

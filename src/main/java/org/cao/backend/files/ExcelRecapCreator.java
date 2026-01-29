@@ -20,7 +20,7 @@ public class ExcelRecapCreator extends FileCreator {
 
     static void main() {
         startDateLog = String.valueOf(LocalDate.now());
-        startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         ExcelRecapCreator erc = new ExcelRecapCreator();
         erc.createNewFile();
