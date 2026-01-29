@@ -43,7 +43,7 @@ public class DatabaseManager {
         startConnectionWithDatabase();
 
         startDateLog = String.valueOf(LocalDate.now());
-        startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         try (Connection con = DriverManager.getConnection(URL, USER, PASSWORD); Statement statement = con.createStatement()) {
 
@@ -379,7 +379,7 @@ public class DatabaseManager {
     }
 
     public static String convertParentToType(String parentName) {
-        return switch(parentName) {
+        return switch (parentName) {
             case "ELEC_online" -> "ELEC";
             case "CONFIG_online" -> "CONFIG";
             case "PDFS_online" -> "PLAN";
