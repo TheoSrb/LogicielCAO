@@ -100,6 +100,18 @@ public class LogsBuilder {
             ErrorBuilder errorBuilder = this.errorBuilder;
 
             bw.write(
+                 "[Date de début];"
+                    + "[Heure de début];"
+                    + "[Date de fin];"
+                    + "[Heure de fin];"
+                    + "[Tâche];"
+                    + "[Opération];"
+                    + "[Erreur];"
+                    + "[Avertissement];"
+                    + "\n"
+            );
+
+            bw.write(
                     startDate + ";"
                         + startHour + ";"
                         + endDate + ";"

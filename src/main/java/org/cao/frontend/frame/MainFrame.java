@@ -70,6 +70,7 @@ public class MainFrame extends JFrame implements ActionListener {
             for (File logFile : logFiles) {
                 try (Scanner scanner = new Scanner(logFile)) {
                     TableRow row;
+                    scanner.nextLine();
                     String line = scanner.nextLine();
                     String[] allLineDatas = line.split(";");
 
