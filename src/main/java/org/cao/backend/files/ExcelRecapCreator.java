@@ -118,8 +118,7 @@ public class ExcelRecapCreator extends FileCreator {
         resultSheet.setColumnWidth(0, 11000);
         resultSheet.setColumnWidth(1, 4000);
 
-        String fileExlName = "MAJBasePlans" + "-" +
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + ".xlsx";
+        String fileExlName = "MAJBasePlans-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + ".xlsx";
         File fileExl = new File(EXCEL_RECAP_PATH + fileExlName);
 
         if (fileExl.exists()) {
