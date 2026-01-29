@@ -58,7 +58,7 @@ public class ExcelRecapCreator extends FileCreator {
     @Override
     public void createNewFile() {
         Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Récapitulatif");
+        Sheet resultSheet = workbook.createSheet("Résultat");
 
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle labelStyle = createLabelStyle(workbook);
@@ -69,12 +69,12 @@ public class ExcelRecapCreator extends FileCreator {
                 LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " à " +
                 LocalTime.now().getHour() + "h" + LocalTime.now().getMinute();
 
-        Row titleRow = sheet.createRow(0);
+        Row titleRow = resultSheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue(title);
         titleCell.setCellStyle(headerStyle);
 
-        sheet.createRow(1);
+        resultSheet.createRow(1);
 
         int[] allCompteursDatas = returnFilesNumber();
 
@@ -93,7 +93,7 @@ public class ExcelRecapCreator extends FileCreator {
 
         int rowNum = 2;
         for (Object[] rowData : data) {
-            Row row = sheet.createRow(rowNum++);
+            Row row = resultSheet.createRow(rowNum++);
 
             Cell labelCell = row.createCell(0);
             labelCell.setCellValue((String) rowData[0]);
@@ -115,8 +115,8 @@ public class ExcelRecapCreator extends FileCreator {
             }
         }
 
-        sheet.setColumnWidth(0, 8000);
-        sheet.setColumnWidth(1, 3000);
+        resultSheet.setColumnWidth(0, 8000);
+        resultSheet.setColumnWidth(1, 3000);
 
         String fileExlName = "MAJBasePlans" + "-" +
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + ".xlsx";
