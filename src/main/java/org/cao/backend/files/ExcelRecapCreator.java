@@ -144,7 +144,7 @@ public class ExcelRecapCreator extends FileCreator {
         CellStyle style = workbook.createCellStyle();
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setFontHeightInPoints((short) 12);
+        font.setFontHeightInPoints((short) 20);
         style.setFont(font);
         style.setAlignment(HorizontalAlignment.LEFT);
         return style;
