@@ -16,12 +16,11 @@ import java.util.*;
 
 public class DatabaseManager {
 
-    private static final String URL = readProperty("db.url");
-    private static final String USER = readProperty("db.user");
-    private static final String PASSWORD = readProperty("db.password");
+    public static final String URL = readProperty("db.url");
+    public static final String USER = readProperty("db.user");
+    public static final String PASSWORD = readProperty("db.password");
 
     public static final String ARTICLES_OUT_BONG_PATH = readProperty("file.out.path");
-    public static final String ARTICLES_IN_BONG_PATH = readProperty("file.in.path");
     public static final String DIRECTORY_PATH = readProperty("directory.path");
 
     public static final List<String> AUTHORIZED_FOLDERS_NAMES = separateAllAuthorizedFolders(readProperty("authorized.explore.folders"));
@@ -75,7 +74,7 @@ public class DatabaseManager {
     }
 
 
-    private static void startConnectionWithDatabase() {
+    public static void startConnectionWithDatabase() {
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
         } catch (ClassNotFoundException e) {
