@@ -132,26 +132,33 @@ public class DatabaseManager {
             }
         }
 
-        String deleteQuery = "DELETE FROM Compteurs";
-        try (PreparedStatement ps = con.prepareStatement(deleteQuery)) {
-            ps.executeUpdate();
-        }
+        con.setAutoCommit(false);
 
-        String insertQuery = "INSERT INTO Compteurs (NbScan, NbPlan, Nb3D, NbAss, NbSchema, NbEclate, NbPFEclate, NbConfig) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        try {
+            String deleteQuery = "DELETE FROM Compteurs";
+            try (PreparedStatement ps = con.prepareStatement(deleteQuery)) {
+                ps.executeUpdate();
+            }
 
-        try (PreparedStatement ps = con.prepareStatement(insertQuery)) {
-            ps.setInt(1, nbScan);
-            ps.setInt(2, nbPlan);
-            ps.setInt(3, 0);
-            ps.setInt(4, 0);
-            ps.setInt(5, nbSchema);
-            ps.setInt(6, nbEclate);
-            ps.setInt(7, 0);
-            ps.setInt(8, nbConfig);
+            String insertQuery = "INSERT INTO Compteurs (NbScan, NbPlan, Nb3D, NbAss, NbSchema, NbEclate, NbPFEclate, NbConfig) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+            try (PreparedStatement ps = con.prepareStatement(insertQuery)) {
+                ps.setInt(1, nbScan);
+                ps.setInt(2, nbPlan);
+                ps.setInt(3, 0);
+                ps.setInt(4, 0);
+                ps.setInt(5, nbSchema);
+                ps.setInt(6, nbEclate);
+                ps.setInt(7, 0);
+                ps.setInt(8, nbConfig);
+
+                ps.executeUpdate();
+            }
 
             con.commit();
 
         } catch (SQLException e) {
+            con.rollback();
             e.printStackTrace();
             throw e;
         }
