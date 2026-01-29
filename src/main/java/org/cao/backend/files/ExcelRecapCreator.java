@@ -115,8 +115,8 @@ public class ExcelRecapCreator extends FileCreator {
             }
         }
 
-        resultSheet.setColumnWidth(0, 8000);
-        resultSheet.setColumnWidth(1, 3000);
+        resultSheet.setColumnWidth(0, 11000);
+        resultSheet.setColumnWidth(1, 4000);
 
         String fileExlName = "MAJBasePlans" + "-" +
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + ".xlsx";
@@ -162,11 +162,14 @@ public class ExcelRecapCreator extends FileCreator {
 
     private CellStyle createValueStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
-        style.setAlignment(HorizontalAlignment.RIGHT);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
         return style;
     }
 
