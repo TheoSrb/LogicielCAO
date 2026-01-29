@@ -1,8 +1,6 @@
-package org.cao.backend;
+package org.cao.backend.files;
 
 import org.cao.backend.db.DatabaseManager;
-import org.cao.backend.errors.ErrorBuilder;
-import org.cao.backend.logs.LogsBuilder;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -15,30 +13,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FileCreator {
-
-    private static final String URL = DatabaseManager.URL;
-    private static final String USER = DatabaseManager.USER;
-    private static final String PASSWORD = DatabaseManager.PASSWORD;
-
-    public static final String ARTICLES_IN_BONG_PATH = DatabaseManager.readProperty("file.in.path");
-
-    private static String startDateLog;
-    private static String startHourLog;
-
-    private static boolean isErrorLog = false;
-    private static boolean isWarningLog = false;
-
-    private static ErrorBuilder potentialError = null;
+public class ArticlesInBongCreator extends FileCreator {
 
     static void main() {
         startDateLog = String.valueOf(LocalDate.now());
         startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
 
-        createNewFile();
+        ArticlesInBongCreator aibc = new ArticlesInBongCreator();
+        aibc.createNewFile();
     }
 
-    private static void createNewFile() {
+    @Override
+    public void createNewFile() {
         DatabaseManager.startConnectionWithDatabase();
         List<String> codeCANList = new ArrayList<>();
         File fileIn = new File(ARTICLES_IN_BONG_PATH);
@@ -82,25 +68,4 @@ public class FileCreator {
 
         createLog("FICHIER CRÉÉ", "Le fichier ArticlesInBong.txt a bien été créé.", potentialError);
     }
-
-    private static void createLog(String task, String operation, ErrorBuilder potentialError) {
-        String endDateLog = String.valueOf(LocalDate.now());
-        String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
-
-        LogsBuilder logsBuilder = new LogsBuilder(
-                startDateLog,
-                startHourLog,
-                endDateLog,
-                endHourLog,
-                task,
-                operation,
-                isErrorLog,
-                isWarningLog,
-                potentialError
-        );
-
-        logsBuilder.updateLogsFile(LogsBuilder.LOGS_DIRECTORY);
-    }
-
-
 }

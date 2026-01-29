@@ -1,20 +1,18 @@
 package org.cao.backend.logs;
 
-import org.cao.backend.BackendLogic;
+import org.cao.backend.db.DatabaseManager;
 import org.cao.backend.errors.ErrorBuilder;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 public class LogsBuilder {
 
-    public static final String LOGS_DIRECTORY = BackendLogic.readProperty("file.logs");
+    public static final String LOGS_DIRECTORY = DatabaseManager.readProperty("file.logs");
 
     // =============== Attributs ===============
 

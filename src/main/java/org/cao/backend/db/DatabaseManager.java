@@ -1,7 +1,8 @@
 package org.cao.backend.db;
 
-import org.cao.backend.BackendLogic;
+import org.cao.backend.files.FileCreator;
 import org.cao.backend.errors.ErrorBuilder;
+import org.cao.backend.errors.ErrorRegistry;
 import org.cao.backend.helper.FileHelper;
 import org.cao.backend.logs.LogsBuilder;
 
@@ -146,10 +147,7 @@ public class DatabaseManager {
 
             if (rs.next()) {
                 isErrorLog = true;
-                ErrorBuilder error = new ErrorBuilder(
-                        "Codes articles non synchronisés",
-                        "Des codes articles venus de SAP n'ont pas été trouvés dans les dossiers des fichiers PDF."
-                );
+                ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_SAP;
                 potentialError = error;
             }
         }
@@ -290,7 +288,7 @@ public class DatabaseManager {
     public static String readProperty(String property) {
         Properties props = new Properties();
 
-        try (InputStream fis = BackendLogic.class.getClassLoader().getResourceAsStream("config.properties")) {
+        try (InputStream fis = FileCreator.class.getClassLoader().getResourceAsStream("config.properties")) {
             props.load(fis);
             return props.getProperty(property);
         } catch (IOException e) {
