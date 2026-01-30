@@ -3,6 +3,7 @@ package org.cao.backend.db;
 import org.cao.backend.files.FileCreator;
 import org.cao.backend.errors.ErrorBuilder;
 import org.cao.backend.errors.ErrorRegistry;
+import org.cao.backend.files.PDFReader;
 import org.cao.backend.helper.FileHelper;
 import org.cao.backend.logs.LogsBuilder;
 
@@ -216,6 +217,9 @@ public class DatabaseManager {
 
             ps.executeBatch();
             con.commit();
+
+            System.out.println("\rRemplissage de la table ArticleCAN en cours: 100%");
+
         } catch (SQLException e) {
             con.rollback();
             throw e;
@@ -232,12 +236,6 @@ public class DatabaseManager {
                 potentialError = error;
             }
         }
-
-
-
-
-
-
 
         createLog("MAJ BDD", "La base de données à été mise à jour.", potentialError);
     }
@@ -261,8 +259,18 @@ public class DatabaseManager {
             }
         }
 
-        String updateQuery = "UPDATE Fichier SET Nom = ?, RepertoireNom = ?, Type = ?, Chemin = ?, Taille = ?, Page = ?, Lien = ?, DernRev = ?, IncoRev = ?, CodeCAN_Parent = ?, Revision_Parent = ? WHERE CodeCAN = ? AND Revision = ?";
-        String insertQuery = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev, CodeCAN_Parent, Revision_Parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        Map<String, String> latestFileNames = new HashMap<>();
+        for (File file : files) {
+            String fileName = file.getName();
+            String codeCAN = getCodeCAN(fileName);
+
+            if (!latestFileNames.containsKey(codeCAN) || fileName.compareTo(latestFileNames.get(codeCAN)) > 0) {
+                latestFileNames.put(codeCAN, fileName);
+            }
+        }
+
+        String updateQuery = "UPDATE Fichier SET Nom = ?, RepertoireNom = ?, Type = ?, Chemin = ?, Taille = ?, Page = ?, Lien = ?, DernRev = ?, IncoRev = ? WHERE CodeCAN = ? AND Revision = ?";
+        String insertQuery = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement updateStmt = con.prepareStatement(updateQuery);
              PreparedStatement insertStmt = con.prepareStatement(insertQuery)) {
@@ -277,6 +285,8 @@ public class DatabaseManager {
                 String key = codeCAN + "|" + revision;
                 boolean exists = existingKeys.contains(key);
 
+                String dernRev = fileName.equals(latestFileNames.get(codeCAN)) ? "1" : "0";
+
                 PreparedStatement ps = exists ? updateStmt : insertStmt;
 
                 ps.setString(1, fileName);
@@ -284,25 +294,22 @@ public class DatabaseManager {
                 ps.setString(3, fileType);
                 ps.setString(4, ".");
                 ps.setInt(5, 0);
+                ps.setString(12, ".");
 
                 if (exists) {
                     ps.setInt(6, 0);
                     ps.setString(7, filePath);
-                    ps.setString(8, "0");
+                    ps.setString(8, dernRev);
                     ps.setString(9, "0");
-                    ps.setString(10, ".");
-                    ps.setString(11, ".");
-                    ps.setString(12, codeCAN);
-                    ps.setString(13, revision);
+                    ps.setString(10, codeCAN);
+                    ps.setString(11, revision);
                 } else {
                     ps.setString(6, codeCAN);
                     ps.setString(7, revision);
                     ps.setInt(8, 0);
                     ps.setString(9, filePath);
-                    ps.setString(10, "0");
+                    ps.setString(10, dernRev);
                     ps.setString(11, "0");
-                    ps.setString(12, ".");
-                    ps.setString(13, ".");
                     existingKeys.add(key);
                 }
 
@@ -327,6 +334,72 @@ public class DatabaseManager {
             con.commit();
 
             System.out.println("\rRemplissage de la table Fichier en cours: 100%");
+
+        } catch (SQLException e) {
+            con.rollback();
+            throw e;
+        }
+
+        fillPDFChilds(con, files);
+    }
+
+    private static void fillPDFChilds(Connection con, List<File> files) throws SQLException {
+        List<File> pdfFiles = files.stream()
+                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
+                .filter(f -> f.getParentFile().getName().contains("ECLATE_online"))
+                .toList();
+
+        int i = 0;
+        int maxPdfs = pdfFiles.size();
+
+        String updateQuery = "UPDATE Fichier SET CodeCAN_Enfant = ? WHERE CodeCAN = ? AND Revision = ?";
+
+        con.setAutoCommit(false);
+
+        try (PreparedStatement ps = con.prepareStatement(updateQuery)) {
+
+            for (File file : pdfFiles) {
+                String fileName = file.getName();
+                String codeCAN = getCodeCAN(fileName);
+                String revision = getRevision(fileName);
+                String filePath = file.getAbsolutePath();
+
+                try {
+                    PDFReader pdfReader = new PDFReader(filePath);
+                    List<String> childs = pdfReader.getChilds();
+
+                    if (childs != null && !childs.isEmpty()) {
+                        StringBuilder jsonBuilder = new StringBuilder("[");
+                        for (int j = 0; j < childs.size(); j++) {
+                            jsonBuilder.append("\"").append(childs.get(j).replace("\"", "\\\"")).append("\"");
+                            if (j < childs.size() - 1) {
+                                jsonBuilder.append(",");
+                            }
+                        }
+                        jsonBuilder.append("]");
+
+                        ps.setString(1, jsonBuilder.toString());
+                        ps.setString(2, codeCAN);
+                        ps.setString(3, revision);
+                        ps.addBatch();
+                    }
+                } catch (Exception e) {
+                }
+
+                i++;
+
+                if (i % 50 == 0) {
+                    ps.executeBatch();
+                    con.commit();
+                    int percentage = (int) (((float) i / maxPdfs) * 100);
+                    System.out.print("\rRemplissage des enfants PDF en cours: " + percentage + "%");
+                }
+            }
+
+            ps.executeBatch();
+            con.commit();
+
+            System.out.println("\rRemplissage des enfants PDF en cours: 100%");
 
         } catch (SQLException e) {
             con.rollback();
