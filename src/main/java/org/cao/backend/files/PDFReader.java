@@ -5,37 +5,51 @@ import org.apache.pdfbox.text.PDFTextStripper;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class PDFReader {
 
     // =============== Attributs ===============
 
     private String filePath;
+    private PDDocument document;
+    private String cachedText;
 
     // =============== Constructeur ===============
 
     public PDFReader(String filePath) {
         this.filePath = filePath;
-        Logger.getLogger("org.apache.pdfbox").setLevel(Level.SEVERE);
+        Logger.getLogger("org.apache.pdfbox").setLevel(Level.OFF);
+        Logger.getLogger("org.apache.fontbox").setLevel(Level.OFF);
     }
 
     // =============== Méthodes ===============
 
+    private void loadDocument() throws IOException {
+        if (document == null) {
+            document = PDDocument.load(new File(filePath));
+        }
+    }
+
+    private String getText() throws IOException {
+        if (cachedText == null) {
+            loadDocument();
+            if (document.isEncrypted()) return null;
+            PDFTextStripper pdfStripper = new PDFTextStripper();
+            cachedText = pdfStripper.getText(document);
+        }
+        return cachedText;
+    }
+
     public List<String> readLinesInTable() {
         List<String> result = new ArrayList<>();
 
-        try (PDDocument document = PDDocument.load(new File(filePath))) {
-
-            if (document.isEncrypted()) return null;
-
-            PDFTextStripper pdfStripper = new PDFTextStripper();
-            String text = pdfStripper.getText(document);
+        try {
+            String text = getText();
+            if (text == null) return null;
 
             String[] lines = text.split("\n");
 
@@ -56,14 +70,14 @@ public class PDFReader {
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+
         }
 
         return result;
     }
 
-    public List<String> getCodeCANInTable() {
-        List<String> codes = new ArrayList<>();
+    public Set<String> getCodeCANInTable() {
+        Set<String> codes = new HashSet<>();
         List<String> lines = readLinesInTable();
 
         for (String line : lines) {
@@ -83,14 +97,38 @@ public class PDFReader {
     }
 
     public List<String> getChilds() throws Exception {
-        List<String> codes = getCodeCANInTable();
-        codes.removeLast();
-        return codes;
+        Set<String> codes = getCodeCANInTable();
+        List<String> list = new ArrayList<>(codes);
+        if (!list.isEmpty()) {
+            list.removeLast();
+        }
+
+        return list.stream()
+                .filter(PDFReader::isValidIndividualCode)
+                .collect(Collectors.toList());
     }
 
     public String getParent() throws Exception {
-        List<String> codes = getCodeCANInTable();
-        return codes.getLast();
+        Set<String> codes = getCodeCANInTable();
+        List<String> list = new ArrayList<>(codes);
+        return list.isEmpty() ? null : list.getLast();
+    }
+
+    private static boolean isValidIndividualCode(String code) {
+        return code != null
+                && (code.startsWith("0") || code.startsWith("AF") || code.startsWith("af"))
+                && code.length() >= 2
+                && Character.isLetterOrDigit(code.charAt(1));
+    }
+
+    public void close() {
+        if (document != null) {
+            try {
+                document.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     // =============== Accesseurs ===============
@@ -101,5 +139,7 @@ public class PDFReader {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+        this.document = null;
+        this.cachedText = null;
     }
 }

@@ -1,5 +1,7 @@
 package org.cao.backend.db;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.cao.backend.files.FileCreator;
 import org.cao.backend.errors.ErrorBuilder;
 import org.cao.backend.errors.ErrorRegistry;
@@ -269,11 +271,9 @@ public class DatabaseManager {
             }
         }
 
-        String updateQuery = "UPDATE Fichier SET Nom = ?, RepertoireNom = ?, Type = ?, Chemin = ?, Taille = ?, Page = ?, Lien = ?, DernRev = ?, IncoRev = ? WHERE CodeCAN = ? AND Revision = ?";
-        String insertQuery = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertQuery = "INSERT INTO Fichier(Nom, RepertoireNom, Type, Chemin, Taille, CodeCAN, Revision, Page, Lien, DernRev, IncoRev, CodeCAN_Enfant) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (PreparedStatement updateStmt = con.prepareStatement(updateQuery);
-             PreparedStatement insertStmt = con.prepareStatement(insertQuery)) {
+        try (PreparedStatement insertStmt = con.prepareStatement(insertQuery)) {
 
             for (File file : files) {
                 String fileName = file.getName();
@@ -285,50 +285,45 @@ public class DatabaseManager {
                 String key = codeCAN + "|" + revision;
                 boolean exists = existingKeys.contains(key);
 
+                if (exists) continue;
+
                 String dernRev = fileName.equals(latestFileNames.get(codeCAN)) ? "1" : "0";
 
-                PreparedStatement ps = exists ? updateStmt : insertStmt;
-
-                ps.setString(1, fileName);
-                ps.setString(2, ".");
-                ps.setString(3, fileType);
-                ps.setString(4, ".");
-                ps.setInt(5, 0);
-
-                if (exists) {
-                    ps.setInt(6, 0);
-                    ps.setString(7, filePath);
-                    ps.setString(8, dernRev);
-                    ps.setString(9, "0");
-                    ps.setString(10, codeCAN);
-                    ps.setString(11, revision);
-                } else {
-                    ps.setString(6, codeCAN);
-                    ps.setString(7, revision);
-                    ps.setInt(8, 0);
-                    ps.setString(9, filePath);
-                    ps.setString(10, dernRev);
-                    ps.setString(11, "0");
-                    existingKeys.add(key);
+                String childsCAN = null;
+                if (fileName.toLowerCase().endsWith(".pdf")) {
+                    childsCAN = fillPDFChilds(filePath);
                 }
 
-                ps.addBatch();
+                insertStmt.setString(1, fileName);
+                insertStmt.setString(2, ".");
+                insertStmt.setString(3, fileType);
+                insertStmt.setString(4, ".");
+                insertStmt.setInt(5, 0);
+
+                insertStmt.setString(6, codeCAN);
+                insertStmt.setString(7, revision);
+                insertStmt.setInt(8, 0);
+                insertStmt.setString(9, filePath);
+                insertStmt.setString(10, dernRev);
+                insertStmt.setString(11, "0");
+                insertStmt.setString(12, childsCAN);
+                existingKeys.add(key);
+
+                insertStmt.addBatch();
 
                 i++;
 
-                if (i % 100 == 0) {
+                if (i % 20 == 0) {
                     int percentage = (int) (((float) i / maxFiles) * 100);
                     System.out.print("\rTraitement de la table Fichier en cours: " + percentage + "%");
                 }
 
-                if (i % 500 == 0) {
-                    updateStmt.executeBatch();
+                if (i % 1000 == 0) {
                     insertStmt.executeBatch();
                     con.commit();
                 }
             }
 
-            updateStmt.executeBatch();
             insertStmt.executeBatch();
             con.commit();
 
@@ -338,78 +333,36 @@ public class DatabaseManager {
             con.rollback();
             throw e;
         }
-
-        fillPDFChilds(con, files);
     }
 
-    private static void fillPDFChilds(Connection con, List<File> files) throws SQLException {
-        List<File> pdfFiles = files.stream()
-                .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
-                .filter(f -> {
-                    String parentName = f.getParentFile().getName();
-                    return parentName.contains("ECLATE_online") || parentName.contains("CONFIG_online") || parentName.contains("ELEC_online");
-                })
-                .toList();
+    private static String fillPDFChilds(String filePath) {
+        PDFReader pdfReader = null;
+        try {
+            pdfReader = new PDFReader(filePath);
+            List<String> childs = pdfReader.getChilds();
 
-        int i = 0;
-        int maxPdfs = pdfFiles.size();
-
-        String updateQuery = "UPDATE Fichier SET CodeCAN_Enfant = ? WHERE CodeCAN = ? AND Revision = ?";
-
-        con.setAutoCommit(false);
-
-        try (PreparedStatement ps = con.prepareStatement(updateQuery)) {
-
-            for (File file : pdfFiles) {
-                String fileName = file.getName();
-                String codeCAN = getCodeCAN(fileName);
-                String revision = getRevision(fileName);
-                String filePath = file.getAbsolutePath();
-
-                try {
-                    PDFReader pdfReader = new PDFReader(filePath);
-                    List<String> childs = pdfReader.getChilds();
-
-                    if (childs != null && !childs.isEmpty()) {
-                        StringBuilder jsonBuilder = new StringBuilder("[");
-                        for (int j = 0; j < childs.size(); j++) {
-                            jsonBuilder.append("\"").append(childs.get(j).replace("\"", "\\\"")).append("\"");
-                            if (j < childs.size() - 1) {
-                                jsonBuilder.append(",");
-                            }
-                        }
-                        jsonBuilder.append("]");
-
-                        if (isValidCodesCAN(jsonBuilder)) {
-                            ps.setString(1, jsonBuilder.toString());
-                            ps.setString(2, codeCAN);
-                            ps.setString(3, revision);
-                            ps.addBatch();
-                        }
+            if (childs != null && !childs.isEmpty()) {
+                StringBuilder jsonBuilder = new StringBuilder("[");
+                for (int j = 0; j < childs.size(); j++) {
+                    jsonBuilder.append("\"").append(childs.get(j).replace("\"", "\\\"")).append("\"");
+                    if (j < childs.size() - 1) {
+                        jsonBuilder.append(",");
                     }
-                } catch (Exception e) {
                 }
+                jsonBuilder.append("]");
 
-                i++;
-
-                if (i % 50 == 0) {
-                    ps.executeBatch();
-                    con.commit();
+                if (isValidCodesCAN(jsonBuilder)) {
+                    return jsonBuilder.toString();
                 }
-
-                int percentage = (int) (((float) i / maxPdfs) * 100);
-                System.out.print("\rTraitement des enfants PDF en cours: " + percentage + "%");
             }
-
-            ps.executeBatch();
-            con.commit();
-
-            System.out.println("\rTraitement des enfants PDF en cours: 100%");
-
-        } catch (SQLException e) {
-            con.rollback();
-            throw e;
+        } catch (Exception e) {
+        } finally {
+            if (pdfReader != null) {
+                pdfReader.close();
+            }
         }
+
+        return null;
     }
 
     public static List<File> returnFilesInDirectory(File directory) {
@@ -459,7 +412,7 @@ public class DatabaseManager {
     private static boolean isValidCodesCAN(StringBuilder stringBuilder) {
         String str = stringBuilder.toString();
 
-        return (str.startsWith("[\"0") || str.startsWith("[\"A") || str.startsWith("[\"a"))
+        return (str.startsWith("[\"0") || str.startsWith("[\"AF") || str.startsWith("[\"af"))
                 && Character.isLetterOrDigit(str.charAt(3))
                 && str.split(",").length >= 10;
     }
