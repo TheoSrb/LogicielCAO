@@ -211,14 +211,14 @@ public class DatabaseManager {
                     con.commit();
 
                     int percentage = (int) (((float) i / maxLines) * 100);
-                    System.out.print("\rRemplissage de la table ArticleCAN en cours: " + percentage + "%");
+                    System.out.print("\rTraitement de la table ArticleCAN en cours: " + percentage + "%");
                 }
             }
 
             ps.executeBatch();
             con.commit();
 
-            System.out.println("\rRemplissage de la table ArticleCAN en cours: 100%");
+            System.out.println("\rTraitement de la table ArticleCAN en cours: 100%");
 
         } catch (SQLException e) {
             con.rollback();
@@ -294,7 +294,6 @@ public class DatabaseManager {
                 ps.setString(3, fileType);
                 ps.setString(4, ".");
                 ps.setInt(5, 0);
-                ps.setString(12, ".");
 
                 if (exists) {
                     ps.setInt(6, 0);
@@ -319,7 +318,7 @@ public class DatabaseManager {
 
                 if (i % 100 == 0) {
                     int percentage = (int) (((float) i / maxFiles) * 100);
-                    System.out.print("\rRemplissage de la table Fichier en cours: " + percentage + "%");
+                    System.out.print("\rTraitement de la table Fichier en cours: " + percentage + "%");
                 }
 
                 if (i % 500 == 0) {
@@ -333,7 +332,7 @@ public class DatabaseManager {
             insertStmt.executeBatch();
             con.commit();
 
-            System.out.println("\rRemplissage de la table Fichier en cours: 100%");
+            System.out.println("\rTraitement de la table Fichier en cours: 100%");
 
         } catch (SQLException e) {
             con.rollback();
@@ -346,7 +345,10 @@ public class DatabaseManager {
     private static void fillPDFChilds(Connection con, List<File> files) throws SQLException {
         List<File> pdfFiles = files.stream()
                 .filter(f -> f.getName().toLowerCase().endsWith(".pdf"))
-                .filter(f -> f.getParentFile().getName().contains("ECLATE_online"))
+                .filter(f -> {
+                    String parentName = f.getParentFile().getName();
+                    return parentName.contains("ECLATE_online") || parentName.contains("CONFIG_online") || parentName.contains("ELEC_online");
+                })
                 .toList();
 
         int i = 0;
@@ -378,10 +380,12 @@ public class DatabaseManager {
                         }
                         jsonBuilder.append("]");
 
-                        ps.setString(1, jsonBuilder.toString());
-                        ps.setString(2, codeCAN);
-                        ps.setString(3, revision);
-                        ps.addBatch();
+                        if (isValidCodesCAN(jsonBuilder)) {
+                            ps.setString(1, jsonBuilder.toString());
+                            ps.setString(2, codeCAN);
+                            ps.setString(3, revision);
+                            ps.addBatch();
+                        }
                     }
                 } catch (Exception e) {
                 }
@@ -391,15 +395,16 @@ public class DatabaseManager {
                 if (i % 50 == 0) {
                     ps.executeBatch();
                     con.commit();
-                    int percentage = (int) (((float) i / maxPdfs) * 100);
-                    System.out.print("\rRemplissage des enfants PDF en cours: " + percentage + "%");
                 }
+
+                int percentage = (int) (((float) i / maxPdfs) * 100);
+                System.out.print("\rTraitement des enfants PDF en cours: " + percentage + "%");
             }
 
             ps.executeBatch();
             con.commit();
 
-            System.out.println("\rRemplissage des enfants PDF en cours: 100%");
+            System.out.println("\rTraitement des enfants PDF en cours: 100%");
 
         } catch (SQLException e) {
             con.rollback();
@@ -449,6 +454,14 @@ public class DatabaseManager {
         List<String> foldersNameAuthorized = AUTHORIZED_FOLDERS_NAMES;
         String folderName = file.getName();
         return foldersNameAuthorized.contains(folderName);
+    }
+
+    private static boolean isValidCodesCAN(StringBuilder stringBuilder) {
+        String str = stringBuilder.toString();
+
+        return (str.startsWith("[\"0") || str.startsWith("[\"A") || str.startsWith("[\"a"))
+                && Character.isLetterOrDigit(str.charAt(3))
+                && str.split(",").length >= 10;
     }
 
     public static String convertParentToType(String parentName) {
