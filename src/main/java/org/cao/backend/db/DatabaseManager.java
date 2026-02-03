@@ -234,8 +234,8 @@ public class DatabaseManager {
 
         File mainDirectory = new File(DatabaseManager.DIRECTORY_PATH);
         List<File> filesList = DatabaseManager.returnFilesInDirectory(mainDirectory);
-
         List<String> outLines = fileHelper.readAllLines();
+
 
         List<String> filesNamesList = new ArrayList<>();
         List<String> codesCANInSAP = new ArrayList<>();
