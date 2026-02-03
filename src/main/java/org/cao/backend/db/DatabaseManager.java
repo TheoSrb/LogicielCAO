@@ -57,6 +57,8 @@ public class DatabaseManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        System.out.println("\n\nLa base de données à été mise à jour !");
     }
 
     private static void createLog(String task, String operation, ErrorBuilder potentialError) {
