@@ -17,6 +17,7 @@ public class ErrorRegistry {
             new ArrayList<>()
     );
 
+    // TODO ici, facile à voir, si un fichier ne commence pas par AF ou af ou Af ou aF alors le mettre dans une liste et déclarer l'erreur
     public static final ErrorBuilder FILE_NAME_ERROR = new ErrorBuilder(
             "Nom d'articles incorrects",
             "Des codes articles ont un nom incorrect.",
