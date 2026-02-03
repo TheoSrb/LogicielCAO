@@ -26,8 +26,8 @@ public class ErrorRegistry {
 
     // TODO ici, vérifier si pour chaque fichier, sa dernière rev est bien celle qui est dans OUT, si elle est inférieure seulement, erreur.
     public static final ErrorBuilder REVISION_ERROR = new ErrorBuilder(
-            "",
-            "",
+            "Revision incorrecte",
+            "Des articles dans les dossiers des fichiers PDF ont une version inférieure aux mêmes codes dans SAP.",
             new ArrayList<>()
     );
 
