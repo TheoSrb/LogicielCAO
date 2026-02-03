@@ -24,12 +24,14 @@ public class ErrorRegistry {
             new ArrayList<>()
     );
 
+    // TODO ici, vérifier si pour chaque fichier, sa dernière rev est bien celle qui est dans OUT, si elle est inférieure seulement, erreur.
     public static final ErrorBuilder REVISION_ERROR = new ErrorBuilder(
             "",
             "",
             new ArrayList<>()
     );
 
+    // TODO ici, simple, juste vérifier si jamais le split[1] de chaque ligne de OUT n'est pas égal à "" ou pas empty, sinon, erreur.
     public static final ErrorBuilder ARTICLES_WITHOUT_DESCRIPTION = new ErrorBuilder(
             "Articles sans description",
             "Des codes articles ne possèdent pas de description.",
