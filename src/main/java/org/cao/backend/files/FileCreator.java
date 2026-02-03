@@ -30,11 +30,11 @@ public abstract class FileCreator {
     public static boolean isErrorLog = false;
     public static boolean isWarningLog = false;
 
-    public static ErrorBuilder potentialError = null;
+    public static List<ErrorBuilder> potentialError = null;
 
     public abstract void createNewFile();
 
-    public static void createLog(String task, String operation, ErrorBuilder potentialError) {
+    public static void createLog(String task, String operation, List<ErrorBuilder> potentialError) {
         String endDateLog = String.valueOf(LocalDate.now());
         String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 

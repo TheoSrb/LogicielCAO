@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class LogsBuilder {
 
@@ -25,7 +26,7 @@ public class LogsBuilder {
     private boolean isError;
     private boolean isWarning;
 
-    private ErrorBuilder errorBuilder;
+    private List<ErrorBuilder> errorBuilder;
 
     // =============== Constructeurs ===============
 
@@ -40,7 +41,7 @@ public class LogsBuilder {
         this.isWarning = isWarning;
     }
 
-    public LogsBuilder(String startDate, String startHour, String endDate, String endHour, String task, String operation, boolean isError, boolean isWarning, ErrorBuilder errorBuilder) {
+    public LogsBuilder(String startDate, String startHour, String endDate, String endHour, String task, String operation, boolean isError, boolean isWarning, List<ErrorBuilder> errorBuilder) {
         this.startDate = startDate;
         this.startHour = startHour;
         this.endDate = endDate;
@@ -97,7 +98,7 @@ public class LogsBuilder {
             boolean isError = this.isError;
             boolean isWarning = this.isWarning;
 
-            ErrorBuilder errorBuilder = this.errorBuilder;
+            List<ErrorBuilder> errorBuilders = this.errorBuilder;
 
             bw.write(
                  "[Date de début];"
@@ -122,8 +123,11 @@ public class LogsBuilder {
                         + isWarning
             );
 
-            if (errorBuilder != null) {
-                bw.write("\n\n[ERROR] " + "[" + errorBuilder.getErrorDate() + "_" + errorBuilder.getErrorHour() + "] " + errorBuilder.getErrorDescription());
+            if (errorBuilders != null) {
+                for (ErrorBuilder errorBuilder : errorBuilders) {
+                    bw.write("\n\n[ERROR] " + "[" + errorBuilder.getErrorDate() + "_" + errorBuilder.getErrorHour() + "] " + errorBuilder.getErrorDescription()
+                            + "\nArticles concernés: " + errorBuilder.getArticlesConcerned());
+                }
             }
 
             bw.close();

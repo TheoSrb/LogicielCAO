@@ -3,18 +3,21 @@ package org.cao.backend.errors;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class ErrorBuilder {
 
     private String errorTitle;
     private String errorDescription;
+    private List<String> articlesConcerned;
 
     private String errorDate;
     private String errorHour;
 
-    public ErrorBuilder(String errorTitle, String errorDescription) {
+    public ErrorBuilder(String errorTitle, String errorDescription, List<String> articlesConcerned) {
         this.errorTitle = errorTitle;
         this.errorDescription = errorDescription;
+        this.articlesConcerned = articlesConcerned;
 
         this.errorDate = LocalDate.now().toString();
 
@@ -44,5 +47,13 @@ public class ErrorBuilder {
 
     public String getErrorHour() {
         return errorHour;
+    }
+
+    public List<String> getArticlesConcerned() {
+        return articlesConcerned;
+    }
+
+    public void setArticlesConcerned(List<String> articlesConcerned) {
+        this.articlesConcerned = articlesConcerned;
     }
 }

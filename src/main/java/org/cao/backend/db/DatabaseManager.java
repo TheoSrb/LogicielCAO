@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DatabaseManager {
 
@@ -36,7 +37,7 @@ public class DatabaseManager {
     private static boolean isErrorLog = false;
     private static boolean isWarningLog = false;
 
-    private static ErrorBuilder potentialError = null;
+    private static List<ErrorBuilder> potentialErrors = new ArrayList<>();
 
     static void main() {
         updateDatabase();
@@ -61,7 +62,7 @@ public class DatabaseManager {
         System.out.println("\n\nLa base de données à été mise à jour !");
     }
 
-    private static void createLog(String task, String operation, ErrorBuilder potentialError) {
+    private static void createLog(String task, String operation, List<ErrorBuilder> potentialError) {
         String endDateLog = String.valueOf(LocalDate.now());
         String endHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
@@ -227,20 +228,47 @@ public class DatabaseManager {
             throw e;
         }
 
-        String verificationQuery = "SELECT * FROM ArticleCAN WHERE CodeCAN NOT IN (SELECT CodeCAN FROM Fichier);";
+        System.out.print("\rTraitement de la table ArticleCAN en cours: 100%");
+        System.out.println("\nVérification et détections des erreurs en cours...");
 
-        try (PreparedStatement ps = con.prepareStatement(verificationQuery)) {
-            ResultSet rs = ps.executeQuery();
 
-            if (rs.next()) {
-                isErrorLog = true;
-                ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_SAP;
-                potentialError = error;
-            }
+        File mainDirectory = new File(DatabaseManager.DIRECTORY_PATH);
+        List<File> filesList = DatabaseManager.returnFilesInDirectory(mainDirectory);
+
+        List<String> outLines = fileHelper.readAllLines();
+
+        List<String> filesNamesList = new ArrayList<>();
+        List<String> codesCANInSAP = new ArrayList<>();
+
+        for (File file : filesList) {
+            filesNamesList.add(file.getName().split("_")[0]);
         }
 
-        System.out.println("\rTraitement de la table ArticleCAN en cours: 100%");
-        createLog("MAJ BDD", "La base de données à été mise à jour.", potentialError);
+        for (String e : outLines) {
+            codesCANInSAP.add(e.split(";")[0]);
+        }
+
+        // Les différentes erreurs qui ne sont pas dans SAP, mais dans les dossiers.
+        List<String> erreurTry1 = getDifference(filesNamesList, codesCANInSAP);
+
+        if (!erreurTry1.isEmpty()) {
+            isErrorLog = true;
+            ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_SAP;
+            error.setArticlesConcerned(erreurTry1);
+            potentialErrors.add(error);
+        }
+
+        // Les différentes erreurs qui sont dans SAP, mais qui ne sont pas dans les dossiers;
+        List<String> erreurTry2 = getDifference(codesCANInSAP, filesNamesList);
+
+        if (!erreurTry2.isEmpty()) {
+            isErrorLog = true;
+            ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_FOLDERS;
+            error.setArticlesConcerned(erreurTry2);
+            potentialErrors.add(error);
+        }
+
+        createLog("MAJ BDD", "La base de données à été mise à jour.", potentialErrors);
     }
 
 
@@ -416,6 +444,25 @@ public class DatabaseManager {
         return (str.startsWith("[\"0") || str.startsWith("[\"AF") || str.startsWith("[\"af"))
                 && Character.isLetterOrDigit(str.charAt(3))
                 && str.split(",").length >= 10;
+    }
+
+    public static List<String> getDifference(List<String> listA, List<String> listB) {
+        Set<String> forbiddenFiles = Set.of(
+                "go.bat",
+                "oli.txt",
+                "thumbs.db"
+        );
+
+        Set<String> setBLowerCase = listB.stream()
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        return listA.stream()
+                .map(String::trim)
+                .filter(e -> !forbiddenFiles.contains(e.toLowerCase()))
+                .filter(e -> !setBLowerCase.contains(e.toLowerCase()))
+                .collect(Collectors.toList());
     }
 
     public static String convertParentToType(String parentName) {
