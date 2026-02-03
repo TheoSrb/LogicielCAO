@@ -59,6 +59,7 @@ public class DatabaseManager {
             e.printStackTrace();
         }
 
+        createLog("MAJ BDD", "La base de données à été mise à jour.", potentialErrors);
         System.out.println("\n\nLa base de données à été mise à jour !");
     }
 
@@ -267,8 +268,6 @@ public class DatabaseManager {
             error.setArticlesConcerned(erreurTry2);
             potentialErrors.add(error);
         }
-
-        createLog("MAJ BDD", "La base de données à été mise à jour.", potentialErrors);
     }
 
 
