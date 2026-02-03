@@ -220,8 +220,6 @@ public class DatabaseManager {
             ps.executeBatch();
             con.commit();
 
-            System.out.println("\rTraitement de la table ArticleCAN en cours: 100%");
-
         } catch (SQLException e) {
             con.rollback();
             throw e;
@@ -239,6 +237,7 @@ public class DatabaseManager {
             }
         }
 
+        System.out.println("\rTraitement de la table ArticleCAN en cours: 100%");
         createLog("MAJ BDD", "La base de données à été mise à jour.", potentialError);
     }
 
