@@ -21,7 +21,7 @@ public class ErrorRegistry {
 
     public static final ErrorBuilder FILE_NAME_ERROR = new ErrorBuilder(
             "Nom d'articles incorrects",
-            "Des codes articles ont un nom incorrect.",
+            "Des codes articles ont un nom incorrect (ne commencent pas par \"AF\").",
             new ArrayList<>(),
             false
     );
