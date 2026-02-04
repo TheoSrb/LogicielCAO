@@ -9,7 +9,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -46,6 +49,11 @@ public class MainFrame extends JFrame implements ActionListener {
     private JScrollPane scrollPane;
 
     /*
+    Liste pour stocker les fichiers de logs dans le même ordre que les lignes du tableau
+     */
+    private java.util.List<File> logFiles = new ArrayList<>();
+
+    /*
     Création des éléments principaux de la fenêtre.
      */
     public MainFrame() {
@@ -64,10 +72,10 @@ public class MainFrame extends JFrame implements ActionListener {
         File logsDirectory = new File(LogsBuilder.LOGS_DIRECTORY);
 
         if (Objects.requireNonNull(logsDirectory.listFiles()).length > 0) {
-            File[] logFiles = logsDirectory.listFiles();
-            Arrays.sort(logFiles, Comparator.comparingLong(File::lastModified).reversed());
+            File[] logFilesArray = logsDirectory.listFiles();
+            Arrays.sort(logFilesArray, Comparator.comparingLong(File::lastModified).reversed());
 
-            for (File logFile : logFiles) {
+            for (File logFile : logFilesArray) {
                 try (Scanner scanner = new Scanner(logFile)) {
                     TableRow row;
                     scanner.nextLine();
@@ -98,6 +106,9 @@ public class MainFrame extends JFrame implements ActionListener {
 
                     // ===== Affectation de cette ligne au constructeur du futur tableau principal =====
                     tableBuilder.addRow(row);
+
+                    // ===== Stocker le fichier correspondant =====
+                    logFiles.add(logFile);
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -132,6 +143,21 @@ public class MainFrame extends JFrame implements ActionListener {
         mainTable.getColumnModel().getColumn(7).setCellEditor(new DefaultCellEditor(new JCheckBox()));
         mainTable.getColumnModel().getColumn(7).setCellRenderer(mainTable.getDefaultRenderer(Boolean.class));
 
+        mainTable.getColumnModel().getColumn(4).setPreferredWidth(125);
+        mainTable.getColumnModel().getColumn(5).setPreferredWidth(300);
+
+        // ===== Ajout du listener pour les clics sur les lignes =====
+        mainTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) { // Double clic
+                    int row = mainTable.getSelectedRow();
+                    if (row >= 0 && row < logFiles.size()) {
+                        openLogFile(logFiles.get(row));
+                    }
+                }
+            }
+        });
 
         // ===== Application du rendu =====
         TableRenderer.applyTableRenderer(mainTable, tableBuilder.getRows());
@@ -141,6 +167,37 @@ public class MainFrame extends JFrame implements ActionListener {
 
         mainTable.setFillsViewportHeight(true);
         scrollPane.setPreferredSize(new Dimension(FRAME_WIDTH - 25, FRAME_HEIGHT - 100));   // La taille du scroll pane et du tableau prennen la taille de la fenêtre avec une marge.
+    }
+
+    /**
+     * Méthode permettant d'ouvrir un fichier de log avec l'application par défaut du système.
+     * @param logFile Le fichier de log à ouvrir
+     */
+    private void openLogFile(File logFile) {
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop desktop = Desktop.getDesktop();
+                if (logFile.exists()) {
+                    desktop.open(logFile);
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                            "Le fichier de log n'existe pas : " + logFile.getName(),
+                            "Erreur",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "L'ouverture de fichiers n'est pas supportée sur ce système.",
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Impossible d'ouvrir le fichier : " + ex.getMessage(),
+                    "Erreur",
+                    JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
     }
 
     /**

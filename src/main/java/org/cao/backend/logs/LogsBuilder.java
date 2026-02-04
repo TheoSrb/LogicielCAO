@@ -125,7 +125,10 @@ public class LogsBuilder {
 
             if (errorBuilders != null) {
                 for (ErrorBuilder errorBuilder : errorBuilders) {
-                    bw.write("\n\n[ERROR] " + "[" + errorBuilder.getErrorDate() + "_" + errorBuilder.getErrorHour() + "] " + errorBuilder.getErrorDescription()
+
+                    String $$0 = errorBuilder.isWarning() ? "[WARNING]" : "[ERROR]";
+
+                    bw.write("\n\n" + $$0 + " " + "[" + errorBuilder.getErrorDate() + "_" + errorBuilder.getErrorHour() + "] " + errorBuilder.getErrorDescription()
                             + "\nArticles concernés: " + errorBuilder.getArticlesConcerned());
                 }
             }

@@ -268,6 +268,39 @@ public class DatabaseManager {
             error.setArticlesConcerned(erreurTry2);
             potentialErrors.add(error);
         }
+
+
+        // Les différentes erreurs qui comportent un nom de fichier inorrect.
+        List<String> erreurTry3 = getFilesWithIncorrectNames(filesList);
+
+        if (!erreurTry3.isEmpty()) {
+            isErrorLog = true;
+            ErrorBuilder error = ErrorRegistry.FILE_NAME_ERROR;
+            error.setArticlesConcerned(erreurTry3);
+            potentialErrors.add(error);
+        }
+
+
+        // Les différentes erreurs qui ont une version antérieure dans les dossiers par rapport à SAP.
+        List<String> erreurTry4 = getArticlesWithOutdatedVersion(filesList, outLines);
+
+        if (!erreurTry4.isEmpty()) {
+            isErrorLog = true;
+            ErrorBuilder error = ErrorRegistry.REVISION_ERROR;
+            error.setArticlesConcerned(erreurTry4);
+            potentialErrors.add(error);
+        }
+
+
+        // Les différentes erreurs qui n'ont pas de descriptions dans SAP.
+        List<String> erreurTry5 = getArticlesWithEmptyDescription(outLines);
+
+        if (!erreurTry5.isEmpty()) {
+            isWarningLog = true;
+            ErrorBuilder error = ErrorRegistry.ARTICLES_WITHOUT_DESCRIPTION;
+            error.setArticlesConcerned(erreurTry5);
+            potentialErrors.add(error);
+        }
     }
 
 
@@ -462,6 +495,115 @@ public class DatabaseManager {
                 .filter(e -> !forbiddenFiles.contains(e.toLowerCase()))
                 .filter(e -> !setBLowerCase.contains(e.toLowerCase()))
                 .collect(Collectors.toList());
+    }
+
+    public static List<String> getFilesWithIncorrectNames(List<File> filesList) {
+        Set<String> forbiddenFiles = Set.of(
+                "go.bat",
+                "oli.txt",
+                "thumbs.db"
+        );
+
+        return filesList.stream()
+                .map(File::getName)
+                .map(String::trim)
+                .filter(e -> !forbiddenFiles.contains(e.toLowerCase()))
+                .filter(fileName -> {
+                    String upperName = fileName.toUpperCase();
+                    return !upperName.startsWith("AF") && !upperName.startsWith("0");
+                })
+                .collect(Collectors.toList());
+    }
+
+    public static List<String> getArticlesWithEmptyDescription(List<String> outLines) {
+        return outLines.stream()
+                .map(String::trim)
+                .filter(line -> {
+                    String[] parts = line.split(";", -1);
+                    if (parts.length < 2) {
+                        return true;
+                    }
+                    String description = parts[1].trim();
+                    String rev = parts[2].trim();
+                    return description.isEmpty() && !rev.equals("00");
+                })
+                .map(line -> line.split(";")[0].trim())
+                .collect(Collectors.toList());
+    }
+
+    public static List<String> getArticlesWithOutdatedVersion(List<File> filesList, List<String> outLines) {
+        Map<String, String> sapRevisions = new HashMap<>();
+        for (String line : outLines) {
+            String[] parts = line.split(";", -1);
+            if (parts.length >= 3) {
+                String codeCAN = parts[0].trim().toUpperCase();
+                String dernRev = parts[2].trim();
+                sapRevisions.put(codeCAN, dernRev);
+            }
+        }
+
+        Map<String, String> fileRevisions = new HashMap<>();
+        for (File file : filesList) {
+            String fileName = file.getName();
+            String codeCAN = fileName.split("_")[0].trim().toUpperCase();
+            String revision = getRevisionFromFileName(fileName);
+
+            if (!fileRevisions.containsKey(codeCAN)) {
+                fileRevisions.put(codeCAN, revision);
+            } else {
+                String currentRev = fileRevisions.get(codeCAN);
+                if (compareRevisions(revision, currentRev) > 0) {
+                    fileRevisions.put(codeCAN, revision);
+                }
+            }
+        }
+
+        List<String> outdatedArticles = new ArrayList<>();
+        for (Map.Entry<String, String> entry : fileRevisions.entrySet()) {
+            String codeCAN = entry.getKey();
+            String fileRevision = entry.getValue();
+            String sapRevision = sapRevisions.get(codeCAN);
+
+            if (sapRevision != null && compareRevisions(sapRevision, fileRevision) > 0) {
+                outdatedArticles.add(codeCAN);
+                outdatedArticles.add("Version SAP: " + sapRevision);
+                outdatedArticles.add("Version Dossiers: " + fileRevision);
+            }
+        }
+
+        return outdatedArticles;
+    }
+
+    private static String getRevisionFromFileName(String fileName) {
+        try {
+            int lastDot = fileName.lastIndexOf('.');
+            if (lastDot == -1) {
+                return "00";
+            }
+
+            String nameWithoutExtension = fileName.substring(0, lastDot);
+            String[] parts = nameWithoutExtension.split("_");
+
+            if (parts.length < 2) {
+                return "00";
+            }
+
+            String revision = parts[parts.length - 1].trim();
+            return revision;
+
+        } catch (Exception e) {
+            return "00";
+        }
+    }
+
+    private static int compareRevisions(String rev1, String rev2) {
+        try {
+            int num1 = Integer.parseInt(rev1);
+            int num2 = Integer.parseInt(rev2);
+            return Integer.compare(num1, num2);
+        } catch (NumberFormatException e) {
+            return rev1.compareTo(rev2);
+        }
     }
 
     public static String convertParentToType(String parentName) {

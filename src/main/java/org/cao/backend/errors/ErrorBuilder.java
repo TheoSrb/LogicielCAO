@@ -14,7 +14,9 @@ public class ErrorBuilder {
     private String errorDate;
     private String errorHour;
 
-    public ErrorBuilder(String errorTitle, String errorDescription, List<String> articlesConcerned) {
+    private boolean isWarning;
+
+    public ErrorBuilder(String errorTitle, String errorDescription, List<String> articlesConcerned, boolean isWarning) {
         this.errorTitle = errorTitle;
         this.errorDescription = errorDescription;
         this.articlesConcerned = articlesConcerned;
@@ -23,6 +25,7 @@ public class ErrorBuilder {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         this.errorHour = LocalTime.now().format(formatter);
+        this.isWarning = isWarning;
     }
 
     public String getErrorTitle() {
@@ -55,5 +58,9 @@ public class ErrorBuilder {
 
     public void setArticlesConcerned(List<String> articlesConcerned) {
         this.articlesConcerned = articlesConcerned;
+    }
+
+    public boolean isWarning() {
+        return isWarning;
     }
 }
