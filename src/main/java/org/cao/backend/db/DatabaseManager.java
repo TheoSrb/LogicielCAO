@@ -2,6 +2,7 @@ package org.cao.backend.db;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.cao.backend.files.ExcelRecapCreator;
 import org.cao.backend.files.FileCreator;
 import org.cao.backend.errors.ErrorBuilder;
 import org.cao.backend.errors.ErrorRegistry;
@@ -58,6 +59,8 @@ public class DatabaseManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        ExcelRecapCreator.startCreation();
 
         createLog("MAJ BDD", "La base de données à été mise à jour.", potentialErrors);
         System.out.println("\n\nLa base de données à été mise à jour !");
@@ -257,6 +260,8 @@ public class DatabaseManager {
             ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_SAP;
             error.setArticlesConcerned(erreurTry1);
             potentialErrors.add(error);
+
+            ExcelRecapCreator.errorNoSAP = erreurTry1;
         }
 
         // Les différentes erreurs qui sont dans SAP, mais qui ne sont pas dans les dossiers;
@@ -267,6 +272,8 @@ public class DatabaseManager {
             ErrorBuilder error = ErrorRegistry.ARTICLES_NOT_IN_FOLDERS;
             error.setArticlesConcerned(erreurTry2);
             potentialErrors.add(error);
+
+            ExcelRecapCreator.errorNoFolders = erreurTry2;
         }
 
 
@@ -278,6 +285,8 @@ public class DatabaseManager {
             ErrorBuilder error = ErrorRegistry.FILE_NAME_ERROR;
             error.setArticlesConcerned(erreurTry3);
             potentialErrors.add(error);
+
+            ExcelRecapCreator.errorBadName = erreurTry3;
         }
 
 
@@ -289,6 +298,10 @@ public class DatabaseManager {
             ErrorBuilder error = ErrorRegistry.REVISION_ERROR;
             error.setArticlesConcerned(erreurTry4);
             potentialErrors.add(error);
+
+            ExcelRecapCreator.errorRevision = erreurTry4.stream()
+                    .filter(line -> !line.startsWith("Version"))
+                    .collect(Collectors.toList());
         }
 
 
@@ -300,6 +313,8 @@ public class DatabaseManager {
             ErrorBuilder error = ErrorRegistry.ARTICLES_WITHOUT_DESCRIPTION;
             error.setArticlesConcerned(erreurTry5);
             potentialErrors.add(error);
+
+            ExcelRecapCreator.errorDescription = erreurTry5;
         }
     }
 
