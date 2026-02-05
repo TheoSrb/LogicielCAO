@@ -102,7 +102,9 @@ public class ExcelRecapCreator extends FileCreator {
                 {"Nombre d'Articles Non Dossiers:", errorNoFolders.size()},
                 {"Nombre d'Articles Nom Incorrect:", errorBadName.size()},
                 {"Nombre d'Articles Erreur Révision:", errorRevision.size()},
-                {"Nombre d'Articles Sans Description:", errorDescription.size()}
+                {"Nombre d'Articles Sans Description:", errorDescription.size()},
+                {"", ""},
+                {"Nombre total d'erreurs:", errorNoSAP.size() + errorNoFolders.size() + errorBadName.size() + errorRevision.size() + errorDescription.size()}
         };
 
         int rowNum = 2;
