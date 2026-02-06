@@ -1,11 +1,18 @@
 package org.cao.backend.files;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 import org.apache.pdfbox.text.PDFTextStripper;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -128,6 +135,45 @@ public class PDFReader {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    public void insertClickableZoneTo(int pageNumber, int x, int y, int w, int h, String url) {
+        try (PDDocument document = PDDocument.load(new File(filePath))) {
+
+            PDPage page = document.getPage(pageNumber);
+
+            page.getAnnotations().clear();
+
+            PDRectangle position = new PDRectangle(x, y, w, h);
+
+            try (PDPageContentStream cs = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true)) {
+                Color color = Color.GREEN;
+
+                cs.setNonStrokingColor(color.getRed(), color.getGreen(), color.getBlue());
+                cs.addRect(position.getLowerLeftX(), position.getLowerLeftY(), position.getWidth(), position.getHeight());
+                cs.fill();
+            }
+
+            // TODO voir si c'est possible avec PDFReader.getChilds() de déterminer x y w h de chaque enfants.
+
+            PDAnnotationLink link = new PDAnnotationLink();
+            link.setRectangle(position);
+
+            PDActionURI action = new PDActionURI();
+            action.setURI(url);
+            link.setAction(action);
+
+            List annotations = new ArrayList(page.getAnnotations());
+            annotations.add(link);
+            page.setAnnotations(annotations);
+
+            document.save(filePath);
+
+            System.out.println("Zone ajouté");
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
