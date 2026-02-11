@@ -44,13 +44,23 @@ public class DatabaseManager {
         updateDatabase();
     }
 
-    private static void updateDatabase() {
+    private static void updateDatabase(boolean truncate) {
         startConnectionWithDatabase();
 
         startDateLog = String.valueOf(LocalDate.now());
         startHourLog = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         try (Connection con = DriverManager.getConnection(URL, USER, PASSWORD); Statement statement = con.createStatement()) {
+
+            if (truncate) {
+                String sqlF = "TRUNCATE TABLE Fichier";
+                String sqlA = "TRUNCATE TABLE ArticleCAN";
+                String sqlC = "TRUNCATE TABLE Compteurs";
+
+                statement.executeUpdate(sqlF);
+                statement.executeUpdate(sqlA);
+                statement.executeUpdate(sqlC);
+            }
 
             fillFichierTable(con, statement);
             fillArticleCANTable(con);
