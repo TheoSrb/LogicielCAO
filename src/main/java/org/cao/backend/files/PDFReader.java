@@ -105,13 +105,18 @@ public class PDFReader {
 
     public List<String> getChilds() throws Exception {
         Set<String> codes = getCodeCANInTable();
-        List<String> list = new ArrayList<>(codes);
-        if (!list.isEmpty()) {
-            list.removeLast();
-        }
+        File file = new File(filePath);
+        String fileNameWithExt = file.getName();
+        String fileNameOnly = fileNameWithExt.contains(".")
+                ? fileNameWithExt.substring(0, fileNameWithExt.lastIndexOf('.'))
+                : fileNameWithExt;
+        String fileBaseName = fileNameOnly.split("_")[0];
 
-        return list.stream()
-                .filter(PDFReader::isValidIndividualCode)
+        return codes.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(code -> code.matches("^(?i)AF\\d.{2,}$"))
+                .filter(code -> !code.equalsIgnoreCase(fileBaseName))
                 .collect(Collectors.toList());
     }
 
@@ -154,8 +159,6 @@ public class PDFReader {
                 cs.addRect(position.getLowerLeftX(), position.getLowerLeftY(), position.getWidth(), position.getHeight());
                 cs.fill();
             }
-
-            // TODO voir si c'est possible avec PDFReader.getChilds() de déterminer x y w h de chaque enfants.
 
             PDAnnotationLink link = new PDAnnotationLink();
             link.setRectangle(position);
