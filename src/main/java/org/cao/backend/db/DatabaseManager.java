@@ -31,7 +31,6 @@ public class DatabaseManager {
 
     public static final List<String> AUTHORIZED_FOLDERS_NAMES = separateAllAuthorizedFolders(readProperty("authorized.explore.folders"));
 
-
     private static String startDateLog;
     private static String startHourLog;
 
