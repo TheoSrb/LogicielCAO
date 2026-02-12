@@ -41,7 +41,7 @@ public class DatabaseManager {
     private static List<ErrorBuilder> potentialErrors = new ArrayList<>();
 
     static void main() {
-        updateDatabase();
+        updateDatabase(false);
     }
 
     private static void updateDatabase(boolean truncate) {
